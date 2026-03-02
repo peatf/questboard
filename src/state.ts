@@ -343,6 +343,9 @@ export function buildReminderIcs(config: QuestConfig, appLink: string): string {
 
   const [hours, minutes] = (config.time || '19:00').split(':').map(Number)
   next.setHours(Number.isFinite(hours) ? hours : 19, Number.isFinite(minutes) ? minutes : 0, 0, 0)
+  if (next <= now) {
+    next.setDate(next.getDate() + 7)
+  }
 
   const monthReset = new Date(now.getFullYear(), now.getMonth() + 1, 1, 9, 0, 0, 0)
 
@@ -369,8 +372,9 @@ END:VEVENT
 END:VCALENDAR`
 }
 
-export function downloadReminderIcs(config: QuestConfig, appLink: string): void {
-  const ics = buildReminderIcs(config, appLink)
+type ReminderExportResult = 'shared' | 'downloaded' | 'cancelled'
+
+function triggerReminderDownload(ics: string): void {
   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
   const url = window.URL.createObjectURL(blob)
   const anchor = document.createElement('a')
@@ -380,6 +384,51 @@ export function downloadReminderIcs(config: QuestConfig, appLink: string): void 
   anchor.click()
   anchor.remove()
   window.setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+}
+
+function isIPhoneChrome(): boolean {
+  const ua = navigator.userAgent || ''
+  return /CriOS/i.test(ua) && /iPhone|iPod|iPad/i.test(ua)
+}
+
+async function tryShareReminderFile(ics: string): Promise<ReminderExportResult> {
+  if (!navigator.share) {
+    return 'downloaded'
+  }
+
+  const file = new File([ics], 'questboard.ics', { type: 'text/calendar' })
+
+  if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+    return 'downloaded'
+  }
+
+  try {
+    await navigator.share({
+      title: 'Questboard reminder',
+      text: 'Add this reminder to your Calendar.',
+      files: [file],
+    })
+    return 'shared'
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return 'cancelled'
+    }
+    return 'downloaded'
+  }
+}
+
+export async function downloadReminderIcs(config: QuestConfig, appLink: string): Promise<ReminderExportResult> {
+  const ics = buildReminderIcs(config, appLink)
+
+  if (isIPhoneChrome()) {
+    const shareResult = await tryShareReminderFile(ics)
+    if (shareResult === 'shared' || shareResult === 'cancelled') {
+      return shareResult
+    }
+  }
+
+  triggerReminderDownload(ics)
+  return 'downloaded'
 }
 
 export function getStreakTag(streakWeeks: number): string {

@@ -20,7 +20,10 @@ export function ReminderScreen({
       <div>
         <div className="kicker">Calendar</div>
         <h1 className="h1">Add the reminder</h1>
-        <p className="sub">Save once, then use the reminder event as your weekly trigger.</p>
+        <p className="sub">
+          Save once, then use the reminder event as your weekly trigger. On iPhone Chrome, use Share then
+          Calendar.
+        </p>
       </div>
 
       <div className="bevel-out panel stack-24">
