@@ -114,30 +114,32 @@ export function DashboardScreen({
       <div className="dash">
         <aside className="bevel-out cmd">
           <div className="cmd-title">Command Menu</div>
-          <button
-            className={`cmd-btn ${commandTab === 'log' ? 'active' : ''}`}
-            onClick={() => scrollToCard('card-log', 'log')}
-            type="button"
-          >
-            LOG WEEK
-          </button>
-          <button
-            className={`cmd-btn ${commandTab === 'targets' ? 'active' : ''}`}
-            onClick={() => scrollToCard('card-monthly', 'targets')}
-            type="button"
-          >
-            TARGETS
-          </button>
-          <button
-            className={`cmd-btn ${commandTab === 'tactics' ? 'active' : ''}`}
-            onClick={() => scrollToCard('card-tactics', 'tactics')}
-            type="button"
-          >
-            TACTICS
-          </button>
-          <button className="cmd-btn" onClick={onOpenReminder} type="button">
-            REMINDERS
-          </button>
+          <div className="cmd-strip">
+            <button
+              className={`cmd-btn ${commandTab === 'log' ? 'active' : ''}`}
+              onClick={() => scrollToCard('card-log', 'log')}
+              type="button"
+            >
+              LOG WEEK
+            </button>
+            <button
+              className={`cmd-btn ${commandTab === 'targets' ? 'active' : ''}`}
+              onClick={() => scrollToCard('card-monthly', 'targets')}
+              type="button"
+            >
+              TARGETS
+            </button>
+            <button
+              className={`cmd-btn ${commandTab === 'tactics' ? 'active' : ''}`}
+              onClick={() => scrollToCard('card-tactics', 'tactics')}
+              type="button"
+            >
+              TACTICS
+            </button>
+            <button className="cmd-btn" onClick={onOpenReminder} type="button">
+              REMINDERS
+            </button>
+          </div>
         </aside>
 
         <main>
