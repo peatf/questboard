@@ -32,10 +32,21 @@ export interface AppProgressState {
   streakWeeks: number
 }
 
+export interface SyncConfig {
+  enabled: boolean
+  vaultId: string
+  syncKey: string
+  deviceId: string
+  lastSyncedAt: number | null
+  lastPulledRevision: number | null
+}
+
 export interface QuestboardState {
+  schemaVersion: 2
   config: QuestConfig
   appState: AppProgressState
   reminderSaved: boolean
+  sync: SyncConfig
 }
 
 export interface WeeklyLogEntry {
@@ -45,6 +56,17 @@ export interface WeeklyLogEntry {
 }
 
 export type WalkthroughTarget = 'log' | 'monthly' | 'calendar'
+export type SaveStateSource = 'local-change' | 'sync-pull' | 'sync-system'
+
+export interface SaveStateOptions {
+  source?: SaveStateSource
+}
+
+export interface QuestboardStateSavedEventDetail {
+  state: QuestboardState
+  source: SaveStateSource
+  at: number
+}
 
 interface RankInfo {
   name: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM'
@@ -74,8 +96,10 @@ const WEEKDAYS: Weekday[] = [
   'Saturday',
 ]
 
-export const STORAGE_KEY = 'questboard_v1'
+export const STORAGE_KEY = 'questboard_v2'
+export const LEGACY_STORAGE_KEY = 'questboard_v1'
 export const WALKTHROUGH_DONE_KEY = 'questboard_wt_done'
+export const QUESTBOARD_STATE_SAVED_EVENT = 'questboard:state-saved'
 
 const DEFAULT_CONFIG: QuestConfig = {
   name: 'Elias',
@@ -89,14 +113,39 @@ const DEFAULT_CONFIG: QuestConfig = {
 
 const DEFAULT_APP_STATE: AppProgressState = {
   targets: { debt: 800, tracks: 8 },
-  current: { debt: 200, savings: 150, tracks: 2 },
-  streakWeeks: 4,
+  current: { debt: 0, savings: 0, tracks: 0 },
+  streakWeeks: 0,
+}
+
+export const DEFAULT_SYNC_CONFIG: SyncConfig = {
+  enabled: false,
+  vaultId: '',
+  syncKey: '',
+  deviceId: '',
+  lastSyncedAt: null,
+  lastPulledRevision: null,
 }
 
 const DEFAULT_STATE: QuestboardState = {
+  schemaVersion: 2,
   config: DEFAULT_CONFIG,
   appState: DEFAULT_APP_STATE,
   reminderSaved: false,
+  sync: DEFAULT_SYNC_CONFIG,
+}
+
+function createDefaultState(): QuestboardState {
+  return {
+    schemaVersion: 2,
+    config: { ...DEFAULT_CONFIG, targets: { ...DEFAULT_CONFIG.targets } },
+    appState: {
+      ...DEFAULT_APP_STATE,
+      targets: { ...DEFAULT_APP_STATE.targets },
+      current: { ...DEFAULT_APP_STATE.current },
+    },
+    reminderSaved: DEFAULT_STATE.reminderSaved,
+    sync: { ...DEFAULT_SYNC_CONFIG },
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -179,61 +228,118 @@ function sanitizeAppState(value: unknown, fallbackTargets: Targets): AppProgress
   }
 }
 
+function sanitizeSyncConfig(value: unknown): SyncConfig {
+  if (!isRecord(value)) {
+    return { ...DEFAULT_SYNC_CONFIG }
+  }
+
+  return {
+    enabled: toBool(value.enabled, DEFAULT_SYNC_CONFIG.enabled),
+    vaultId: toText(value.vaultId, ''),
+    syncKey: toText(value.syncKey, ''),
+    deviceId: toText(value.deviceId, ''),
+    lastSyncedAt:
+      typeof value.lastSyncedAt === 'number' && Number.isFinite(value.lastSyncedAt)
+        ? value.lastSyncedAt
+        : null,
+    lastPulledRevision:
+      typeof value.lastPulledRevision === 'number' && Number.isFinite(value.lastPulledRevision)
+        ? clampNonNegative(value.lastPulledRevision)
+        : null,
+  }
+}
+
+export function hydrateQuestboardState(value: unknown): QuestboardState {
+  const root = isRecord(value) ? value : {}
+  const config = sanitizeConfig(root.config)
+  const appState = sanitizeAppState(root.appState, config.targets)
+  const sync = sanitizeSyncConfig(root.sync)
+
+  return {
+    schemaVersion: 2,
+    config,
+    appState,
+    reminderSaved: toBool(root.reminderSaved, false),
+    sync,
+  }
+}
+
+export function isLegacyDemoSeedState(state: QuestboardState): boolean {
+  const { config, appState } = state
+  return (
+    config.name === DEFAULT_CONFIG.name &&
+    config.day === DEFAULT_CONFIG.day &&
+    config.time === DEFAULT_CONFIG.time &&
+    config.targets.debt === DEFAULT_CONFIG.targets.debt &&
+    config.targets.tracks === DEFAULT_CONFIG.targets.tracks &&
+    config.trusted === DEFAULT_CONFIG.trusted &&
+    config.midweek === DEFAULT_CONFIG.midweek &&
+    config.prep === DEFAULT_CONFIG.prep &&
+    appState.current.debt === 200 &&
+    appState.current.savings === 150 &&
+    appState.current.tracks === 2 &&
+    appState.streakWeeks === 4
+  )
+}
+
+export function clearProgressState(state: QuestboardState): QuestboardState {
+  return {
+    ...state,
+    appState: {
+      ...state.appState,
+      current: {
+        debt: 0,
+        savings: 0,
+        tracks: 0,
+      },
+      streakWeeks: 0,
+    },
+  }
+}
+
 export function loadQuestboardState(): QuestboardState {
   if (typeof window === 'undefined') {
-    return {
-      config: { ...DEFAULT_CONFIG, targets: { ...DEFAULT_CONFIG.targets } },
-      appState: {
-        ...DEFAULT_APP_STATE,
-        targets: { ...DEFAULT_APP_STATE.targets },
-        current: { ...DEFAULT_APP_STATE.current },
-      },
-      reminderSaved: DEFAULT_STATE.reminderSaved,
-    }
+    return createDefaultState()
   }
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      return {
-        config: { ...DEFAULT_CONFIG, targets: { ...DEFAULT_CONFIG.targets } },
-        appState: {
-          ...DEFAULT_APP_STATE,
-          targets: { ...DEFAULT_APP_STATE.targets },
-          current: { ...DEFAULT_APP_STATE.current },
-        },
-        reminderSaved: DEFAULT_STATE.reminderSaved,
-      }
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw)
+      return hydrateQuestboardState(parsed)
     }
 
-    const parsed: unknown = JSON.parse(raw)
-    const root = isRecord(parsed) ? parsed : {}
-    const config = sanitizeConfig(root.config)
-    const appState = sanitizeAppState(root.appState, config.targets)
-
-    return {
-      config,
-      appState,
-      reminderSaved: toBool(root.reminderSaved, false),
+    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (legacyRaw) {
+      const parsedLegacy: unknown = JSON.parse(legacyRaw)
+      const migrated = hydrateQuestboardState(parsedLegacy)
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
+      return migrated
     }
+
+    return createDefaultState()
   } catch {
-    return {
-      config: { ...DEFAULT_CONFIG, targets: { ...DEFAULT_CONFIG.targets } },
-      appState: {
-        ...DEFAULT_APP_STATE,
-        targets: { ...DEFAULT_APP_STATE.targets },
-        current: { ...DEFAULT_APP_STATE.current },
-      },
-      reminderSaved: DEFAULT_STATE.reminderSaved,
-    }
+    return createDefaultState()
   }
 }
 
-export function saveQuestboardState(state: QuestboardState): void {
+export function saveQuestboardState(state: QuestboardState, options: SaveStateOptions = {}): void {
   if (typeof window === 'undefined') {
     return
   }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+
+  const nextState = hydrateQuestboardState(state)
+  const source: SaveStateSource = options.source ?? 'local-change'
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState))
+  window.dispatchEvent(
+    new CustomEvent<QuestboardStateSavedEventDetail>(QUESTBOARD_STATE_SAVED_EVENT, {
+      detail: {
+        state: nextState,
+        source,
+        at: Date.now(),
+      },
+    }),
+  )
 }
 
 export function isWalkthroughComplete(): boolean {

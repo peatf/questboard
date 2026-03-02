@@ -4,9 +4,26 @@ import { clampNonNegative, type QuestConfig } from '../state'
 interface SetupScreenProps {
   config: QuestConfig
   onContinue: (config: QuestConfig) => void
+  syncAvailable: boolean
+  syncEnabled: boolean
+  syncStatusLabel: string
+  syncMessage: string
+  syncLink: string | null
+  onEnableSync: () => void
+  onCopySyncLink: () => void
 }
 
-export function SetupScreen({ config, onContinue }: SetupScreenProps) {
+export function SetupScreen({
+  config,
+  onContinue,
+  syncAvailable,
+  syncEnabled,
+  syncStatusLabel,
+  syncMessage,
+  syncLink,
+  onEnableSync,
+  onCopySyncLink,
+}: SetupScreenProps) {
   const [form, setForm] = useState<QuestConfig>(config)
 
   useEffect(() => {
@@ -156,6 +173,37 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
                 </label>
               </div>
             </div>
+          </div>
+
+          <div className="bevel-in panel panel-tight sync-inline-card">
+            <div className="row row-top">
+              <div>
+                <div className="kicker">Sync</div>
+                <p className="sub">Protect your progress across devices.</p>
+              </div>
+              <div className="tag">{syncStatusLabel}</div>
+            </div>
+
+            {!syncAvailable && (
+              <p className="sub sub-top-16">Sync is unavailable because API settings are missing.</p>
+            )}
+
+            {syncAvailable && !syncEnabled && (
+              <button className="btn btn-primary top-gap-24" onClick={onEnableSync} type="button">
+                Enable Sync
+              </button>
+            )}
+
+            {syncAvailable && syncEnabled && (
+              <div className="stack-16 top-gap-24">
+                <button className="btn" onClick={onCopySyncLink} type="button">
+                  Copy Sync Link
+                </button>
+                {syncLink && <p className="sub">Keep this private link saved somewhere safe.</p>}
+              </div>
+            )}
+
+            {syncMessage && <p className="sub sub-top-16">{syncMessage}</p>}
           </div>
         </div>
 

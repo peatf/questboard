@@ -403,6 +403,14 @@ input[type='checkbox'] {
   margin-bottom: calc(var(--g) * 2);
 }
 
+.cmd-head {
+  margin-bottom: calc(var(--g) * 2);
+}
+
+.cmd-head .cmd-title {
+  margin-bottom: 0;
+}
+
 .cmd-btn {
   width: 100%;
   height: calc(var(--g) * 5);
@@ -635,6 +643,10 @@ input[type='checkbox'] {
 
 .top-gap-24 {
   margin-top: calc(var(--g) * 3);
+}
+
+.sync-inline-card .btn {
+  width: 100%;
 }
 
 .pad-top-8 {

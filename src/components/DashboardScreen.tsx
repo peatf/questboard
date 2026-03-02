@@ -21,6 +21,9 @@ interface DashboardScreenProps {
   highlightTarget: WalkthroughTarget | null
   onSubmitLog: (entry: WeeklyLogEntry) => void
   onOpenReminder: () => void
+  onOpenSync: () => void
+  syncStatusLabel: string
+  syncEnabled: boolean
 }
 
 type CommandTab = 'log' | 'targets' | 'tactics'
@@ -31,6 +34,9 @@ export function DashboardScreen({
   highlightTarget,
   onSubmitLog,
   onOpenReminder,
+  onOpenSync,
+  syncStatusLabel,
+  syncEnabled,
 }: DashboardScreenProps) {
   const [commandTab, setCommandTab] = useState<CommandTab>('log')
   const [formValues, setFormValues] = useState({ debt: '', savings: '', tracks: '' })
@@ -113,7 +119,10 @@ export function DashboardScreen({
 
       <div className="dash">
         <aside className="bevel-out cmd">
-          <div className="cmd-title">Command Menu</div>
+          <div className="row cmd-head">
+            <div className="cmd-title">Command Menu</div>
+            {syncEnabled && <div className="tag">{syncStatusLabel}</div>}
+          </div>
           <div className="cmd-strip">
             <button
               className={`cmd-btn ${commandTab === 'log' ? 'active' : ''}`}
@@ -138,6 +147,9 @@ export function DashboardScreen({
             </button>
             <button className="cmd-btn" onClick={onOpenReminder} type="button">
               REMINDERS
+            </button>
+            <button className="cmd-btn" onClick={onOpenSync} type="button">
+              SYNC
             </button>
           </div>
         </aside>
