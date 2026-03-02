@@ -21,6 +21,7 @@ import {
 } from './state'
 
 type Screen = 'setup' | 'reminder' | 'dashboard'
+const REMINDER_APP_LINK = 'https://tinyurl.com/ellquest'
 
 function App() {
   const [questState, setQuestState] = useState<QuestboardState>(() => loadQuestboardState())
@@ -79,7 +80,7 @@ function App() {
   }
 
   const handleSaveReminder = () => {
-    downloadReminderIcs(questState.config, window.location.href)
+    downloadReminderIcs(questState.config, REMINDER_APP_LINK)
     const nextState: QuestboardState = { ...questState, reminderSaved: true }
     setQuestState(nextState)
     saveQuestboardState(nextState)
