@@ -399,8 +399,8 @@ export function getTactics(
 ): { text: string; action: string; tag: string } {
   if (tracksPct < expectedPct - 8) {
     return {
-      text: 'Tracks are behind the month clock. Fix the bottleneck with a single protected block.',
-      action: 'Schedule 1× 60–90 min track session in the next 72 hours. Treat it like a meeting.',
+      text: "Tracks are behind this month's pace. Fix the bottleneck with one protected block.",
+      action: 'Schedule one 60-90 min track session in the next 72 hours. Treat it like a meeting.',
       tag: 'TRACKS',
     }
   }
@@ -412,8 +412,8 @@ export function getTactics(
     }
   }
   return {
-    text: "You're on pace. Don't over-touch the system. Protect consistency.",
-    action: 'Do nothing extra. Wait for the next calendar event, then log once.',
+    text: "You're on pace. Don't overwork the system. Protect consistency.",
+    action: 'Do nothing extra. Wait for the next reminder, then log once.',
     tag: 'MAINTAIN',
   }
 }

@@ -43,18 +43,18 @@ function App() {
   const walkthroughContent = useMemo(
     () => [
       {
-        title: 'Log Weekly',
-        description: 'Once per week, enter debt, savings, and tracks. That is the only required input.',
+        title: 'Log weekly',
+        description: "Once per week, enter debt, savings, and tracks. That's the only required input.",
         button: 'Next →',
       },
       {
-        title: 'Watch Monthly Objectives',
-        description: 'Use the bars and pace signal to stay aligned with your monthly minimum targets.',
+        title: 'Watch monthly targets',
+        description: 'Use the bars and pace signal to stay on your monthly minimum targets.',
         button: 'Next →',
       },
       {
-        title: 'Obey the Calendar Rule',
-        description: "Don't open randomly. Open from the reminder event, log once, then close.",
+        title: 'Follow the calendar rule',
+        description: 'Open from the reminder event, log once, then close.',
         button: 'Start →',
       },
     ],
@@ -107,14 +107,14 @@ function App() {
     const tracksPct = computeProgressPct(nextAppState.current.tracks, nextAppState.targets.tracks)
 
     let suggestionTag: RecapData['suggestionTag'] = 'EVEN'
-    let suggestionText = 'Balanced progress. Close the window and wait for the next calendar event.'
+    let suggestionText = 'Balanced progress. Close this and wait for the next reminder.'
 
     if (tracksPct < debtPct) {
       suggestionTag = 'TRACKS'
-      suggestionText = 'Tracks are the limiting factor. Protect one focused session before midweek.'
+      suggestionText = 'Tracks are the bottleneck. Protect one focused session before midweek.'
     } else if (debtPct < tracksPct) {
       suggestionTag = 'DEBT'
-      suggestionText = 'Debt pacing is trailing. Find one automatic payment move to remove friction.'
+      suggestionText = 'Debt pace is trailing. Set one automatic payment to remove friction.'
     }
 
     const nextState: QuestboardState = { ...questState, appState: nextAppState }

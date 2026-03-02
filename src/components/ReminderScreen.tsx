@@ -18,8 +18,8 @@ export function ReminderScreen({
   return (
     <section id="screen-reminder" className="stack-24">
       <div>
-        <div className="kicker">Calendar Integration</div>
-        <h1 className="h1">Install the reminder</h1>
+        <div className="kicker">Calendar</div>
+        <h1 className="h1">Add the reminder</h1>
         <p className="sub">Save once, then use the reminder event as your weekly trigger.</p>
       </div>
 
@@ -27,7 +27,7 @@ export function ReminderScreen({
         <div className="bevel-in panel panel-tight">
           <div className="row row-space-between">
             <div>
-              <div className="kicker">Package</div>
+              <div className="kicker">Reminder Pack</div>
               <div className="sub sub-tight">Weekly check-in + monthly reset</div>
             </div>
             <div className="mono">{`${config.day} @ ${config.time}`}</div>
@@ -35,7 +35,7 @@ export function ReminderScreen({
         </div>
 
         <button className="btn btn-primary" onClick={onSaveReminder} type="button">
-          Save Reminder
+          Save reminder
         </button>
 
         <button
@@ -44,7 +44,7 @@ export function ReminderScreen({
           type="button"
           aria-disabled={!reminderSaved}
         >
-          Enter Dashboard →
+          Open dashboard →
         </button>
       </div>
 

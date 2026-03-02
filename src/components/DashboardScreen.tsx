@@ -78,7 +78,7 @@ export function DashboardScreen({
         </div>
 
         <div className="align-right">
-          <div className="kicker">Month Resets In</div>
+          <div className="kicker">Month resets in</div>
           <div className="mono mono-strong" id="dash-daysleft">{`${month.daysLeft} days`}</div>
         </div>
       </div>
@@ -113,7 +113,7 @@ export function DashboardScreen({
 
       <div className="dash">
         <aside className="bevel-out cmd">
-          <div className="cmd-title">Command</div>
+          <div className="cmd-title">Command Menu</div>
           <button
             className={`cmd-btn ${commandTab === 'log' ? 'active' : ''}`}
             onClick={() => scrollToCard('card-log', 'log')}
@@ -136,7 +136,7 @@ export function DashboardScreen({
             TACTICS
           </button>
           <button className="cmd-btn" onClick={onOpenReminder} type="button">
-            EXPORT
+            REMINDERS
           </button>
         </aside>
 
@@ -149,7 +149,7 @@ export function DashboardScreen({
           >
             <div className="row">
               <div>
-                <div className="kicker">Weekly Input</div>
+                <div className="kicker">Weekly Check-in</div>
                 <h2 className="h1 h1-sm pad-top-8">Log the numbers</h2>
               </div>
               <div className="mono muted mono-small">{weekStamp}</div>
@@ -207,13 +207,13 @@ export function DashboardScreen({
               </div>
 
               <button className="btn btn-primary" type="submit">
-                Submit Log →
+                Save log →
               </button>
               <p
                 id="calendar-rule"
                 className={`sub ${highlightTarget === 'calendar' ? 'walkthrough-highlight-inline' : ''}`}
               >
-                Rule: log once per week. No random checking.
+                Rule: log once a week from the reminder, then close.
               </p>
             </form>
           </div>
@@ -226,8 +226,8 @@ export function DashboardScreen({
           >
             <div className="row">
               <div>
-                <div className="kicker">Monthly Objectives</div>
-                <h2 className="h1 h1-sm pad-top-8">Minimums + pacing</h2>
+                <div className="kicker">Monthly Targets</div>
+                <h2 className="h1 h1-sm pad-top-8">Minimums and pace</h2>
               </div>
               <div className="mono muted mono-small">{`Debt $${appState.targets.debt} · Tracks ${appState.targets.tracks}`}</div>
             </div>
@@ -263,13 +263,13 @@ export function DashboardScreen({
           <div id="card-tactics" className="bevel-out panel stack-24">
             <div>
               <div className="kicker">Tactics</div>
-              <h2 className="h1 h1-sm pad-top-8">One move, this week</h2>
+              <h2 className="h1 h1-sm pad-top-8">One move this week</h2>
               <p className="sub">{tactics.text}</p>
             </div>
 
             <div className="bevel-in panel panel-tight">
               <div className="row">
-                <div className="mono next-action">NEXT ACTION</div>
+                <div className="mono next-action">Next action</div>
                 <div className="tag">{tactics.tag}</div>
               </div>
               <p className="sub sub-top-16">{tactics.action}</p>

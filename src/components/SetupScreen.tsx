@@ -33,15 +33,15 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
   return (
     <section id="screen-setup" className="stack-24">
       <div>
-        <div className="kicker">System Configuration</div>
-        <h1 className="h1">Set the win conditions</h1>
-        <p className="sub">Define targets + schedule once. After that: reminder pops → you log → you leave.</p>
+        <div className="kicker">System Setup</div>
+        <h1 className="h1">Set your win conditions</h1>
+        <p className="sub">Set targets and schedule once. After that: reminder pops, you log, you leave.</p>
       </div>
 
       <form className="stack-24" onSubmit={handleSubmit}>
         <div className="bevel-out panel stack-24">
           <div>
-            <label htmlFor="cfg-name">Player</label>
+              <label htmlFor="cfg-name">Operator Name</label>
             <input
               id="cfg-name"
               type="text"
@@ -52,7 +52,7 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
 
           <div className="grid-2">
             <div>
-              <label htmlFor="cfg-day">Weekly Check-in Day</label>
+              <label htmlFor="cfg-day">Weekly check-in day</label>
               <select
                 id="cfg-day"
                 value={form.day}
@@ -69,7 +69,7 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
             </div>
 
             <div>
-              <label htmlFor="cfg-time">Weekly Check-in Time</label>
+              <label htmlFor="cfg-time">Weekly check-in time</label>
               <input
                 id="cfg-time"
                 type="time"
@@ -81,7 +81,7 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
 
           <div className="grid-2">
             <div>
-              <label htmlFor="cfg-debt">Monthly Minimum - Debt</label>
+              <label htmlFor="cfg-debt">Monthly debt minimum</label>
               <input
                 id="cfg-debt"
                 className="input-mono"
@@ -98,7 +98,7 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
             </div>
 
             <div>
-              <label htmlFor="cfg-tracks">Monthly Minimum - Tracks</label>
+              <label htmlFor="cfg-tracks">Monthly tracks minimum</label>
               <input
                 id="cfg-tracks"
                 className="input-mono"
@@ -116,7 +116,7 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
           </div>
 
           <div>
-            <label htmlFor="cfg-trusted">Trusted Person (Optional)</label>
+            <label htmlFor="cfg-trusted">Trusted person (optional)</label>
             <input
               id="cfg-trusted"
               type="text"
@@ -124,14 +124,14 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
               placeholder="e.g. Sarah"
               onChange={(event) => updateField('trusted', event.target.value)}
             />
-            <p className="sub sub-tight">If used later: they get a monthly snapshot text.</p>
+            <p className="sub sub-tight">If you add one, they can get a monthly snapshot text.</p>
           </div>
 
           <div className="bevel-in panel panel-tight">
             <div className="row row-top">
               <div>
-                <div className="kicker">Advanced (Optional)</div>
-                <p className="sub">Extra reminders if you want redundancy.</p>
+                <div className="kicker">Extra reminders (optional)</div>
+                <p className="sub">Add backup reminders if you want them.</p>
               </div>
 
               <div className="stack-16 form-checks">
@@ -160,7 +160,7 @@ export function SetupScreen({ config, onContinue }: SetupScreenProps) {
         </div>
 
         <button className="btn btn-primary" type="submit">
-          Continue →
+          Save setup →
         </button>
       </form>
     </section>
