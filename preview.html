@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Questboard</title>
+  <style>
+    :root{
+      --g: 8px;
+
+      /* Classic Mac-ish platinum + ink */
+      --desktop: #9ea0a2;
+      --desktop2:#8f9193;
+      --win: #d7d7d7;
+      --panel: #dcdcdc;
+      --panel2:#cfcfcf;
+
+      --ink: #111213;
+      --muted:#44474a;
+
+      --hi: #ffffff;
+      --mid:#b9b9b9;
+      --lo: #5b5b5b;
+      --shadow:#7a7a7a;
+
+      --accent:#2b67d1;      /* “system blue” */
+      --accent2:#6a2bd1;     /* fantasy purple accent */
+      --good:#0f7a3a;
+      --warn:#8a5a00;
+      --bad:#9b1c1c;
+
+      --radius: 0px;         /* keep it crisp / pixel-ish */
+      --font-ui: "Chicago", "Charcoal", "Geneva", "Lucida Grande", "Helvetica Neue", -apple-system, system-ui, sans-serif;
+      --font-mono: "Monaco", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    *{ box-sizing:border-box; }
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      font-family: var(--font-ui);
+      color: var(--ink);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(var(--g) * 3);
+      /* subtle “desktop” dither */
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 4px),
+        repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 1px, transparent 1px 4px),
+        linear-gradient(180deg, var(--desktop), var(--desktop2));
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* --- Bevel utilities (OS 8/9 feel) --- */
+    .bevel-out{
+      border: 2px solid var(--lo);
+      box-shadow:
+        inset 2px 2px 0 var(--hi),
+        inset -2px -2px 0 var(--mid),
+        0 6px 0 rgba(0,0,0,0.12);
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+    }
+    .bevel-in{
+      border: 2px solid var(--lo);
+      box-shadow:
+        inset -2px -2px 0 var(--hi),
+        inset 2px 2px 0 var(--mid);
+      background: #ececec;
+    }
+    .pixel-border{
+      border: 2px solid var(--lo);
+      box-shadow:
+        inset 2px 2px 0 var(--hi),
+        inset -2px -2px 0 var(--mid);
+      background: var(--win);
+    }
+
+    /* --- Window shell --- */
+    .window{
+      width: min(640px, 100%);
+      max-width: 640px;
+      border-radius: var(--radius);
+      overflow:hidden;
+    }
+    .titlebar{
+      height: calc(var(--g) * 4); /* 32px */
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 0 calc(var(--g) * 2);
+      border-bottom: 2px solid var(--lo);
+      background: linear-gradient(180deg, #efefef, #cfcfcf);
+    }
+    .title-left{
+      display:flex;
+      align-items:center;
+      gap: calc(var(--g) * 1);
+      min-width: 160px;
+    }
+    .win-dots{
+      display:flex;
+      gap: calc(var(--g) * 1);
+      align-items:center;
+    }
+    .dot{
+      width: 14px; height: 14px;
+      border: 2px solid var(--lo);
+      background: #f5f5f5;
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+      padding:0;
+    }
+    .dot:active{ transform: translateY(1px); }
+    .title{
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      font-weight: 700;
+      display:flex;
+      align-items:center;
+      gap: calc(var(--g) * 1);
+      justify-content:center;
+      flex: 1;
+      user-select:none;
+      text-transform: uppercase;
+    }
+    .title-right{
+      min-width: 160px;
+      display:flex;
+      justify-content:flex-end;
+      gap: calc(var(--g) * 1);
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+    .menubar{
+      height: calc(var(--g) * 3); /* 24px */
+      display:flex;
+      align-items:center;
+      gap: calc(var(--g) * 2);
+      padding: 0 calc(var(--g) * 2);
+      border-bottom: 2px solid var(--lo);
+      background: #e6e6e6;
+      user-select:none;
+    }
+    .menuitem{
+      font-size: 12px;
+      color: var(--ink);
+      padding: 2px 6px;
+      border: 1px solid transparent;
+    }
+    .menuitem:hover{
+      border: 1px solid var(--lo);
+      background: #f2f2f2;
+    }
+
+    .content{
+      padding: calc(var(--g) * 3); /* 24px */
+      background: var(--win);
+    }
+
+    /* --- Typography --- */
+    .h1{
+      margin:0;
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .sub{
+      margin-top: calc(var(--g) * 1);
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .kicker{
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    /* --- Layout: 8px grid discipline --- */
+    .stack-16 > * + *{ margin-top: calc(var(--g) * 2); } /* 16 */
+    .stack-24 > * + *{ margin-top: calc(var(--g) * 3); } /* 24 */
+    .stack-32 > * + *{ margin-top: calc(var(--g) * 4); } /* 32 */
+
+    .row{
+      display:flex;
+      gap: calc(var(--g) * 2);
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: calc(var(--g) * 2);
+    }
+    .grid-3{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: calc(var(--g) * 2);
+    }
+
+    /* --- Controls --- */
+    label{
+      display:block;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin-bottom: calc(var(--g) * 1);
+    }
+    input, select{
+      width:100%;
+      height: calc(var(--g) * 5); /* 40px */
+      padding: 0 calc(var(--g) * 2);
+      border-radius: 0;
+      border: 2px solid var(--lo);
+      background: #f4f4f4;
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+      font-size: 14px;
+      color: var(--ink);
+      outline:none;
+    }
+    input:focus, select:focus{
+      border-color: var(--accent);
+      box-shadow:
+        inset 2px 2px 0 var(--hi),
+        inset -2px -2px 0 var(--mid),
+        0 0 0 2px rgba(43,103,209,0.25);
+    }
+    .input-mono{ font-family: var(--font-mono); }
+
+    .btn{
+      height: calc(var(--g) * 6); /* 48px */
+      padding: 0 calc(var(--g) * 3);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      cursor:pointer;
+      user-select:none;
+      background: #efefef;
+      border: 2px solid var(--lo);
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn-primary{
+      background: linear-gradient(180deg, #dce8ff, #b8ccff);
+      border-color: #244c9b;
+      box-shadow:
+        inset 2px 2px 0 #ffffff,
+        inset -2px -2px 0 rgba(0,0,0,0.18);
+    }
+    .btn-disabled{
+      opacity: 0.5;
+      cursor:not-allowed;
+      pointer-events:none;
+    }
+
+    .panel{
+      padding: calc(var(--g) * 3); /* 24 */
+    }
+
+    /* --- JRPG-ish command menu --- */
+    .dash{
+      display:grid;
+      grid-template-columns: 168px 1fr; /* 21*8 */
+      gap: calc(var(--g) * 3);         /* 24 */
+      align-items:start;
+    }
+    @media (max-width: 680px){
+      .dash{ grid-template-columns: 1fr; }
+    }
+    .cmd{
+      padding: calc(var(--g) * 2);
+    }
+    .cmd-title{
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      color: var(--muted);
+      margin-bottom: calc(var(--g) * 2);
+    }
+    .cmd-btn{
+      width:100%;
+      height: calc(var(--g) * 5); /* 40 */
+      margin-bottom: calc(var(--g) * 2);
+      text-align:left;
+      padding: 0 calc(var(--g) * 2);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      border: 2px solid var(--lo);
+      background: #f0f0f0;
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+      cursor:pointer;
+    }
+    .cmd-btn.active{
+      border-color: var(--accent2);
+      background: linear-gradient(180deg, #efe6ff, #d8c6ff);
+    }
+
+    /* --- HUD / scoreboard --- */
+    .hud{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: calc(var(--g) * 2);
+      margin-bottom: calc(var(--g) * 3);
+    }
+    @media (max-width: 680px){
+      .hud{ grid-template-columns: repeat(2, 1fr); }
+    }
+    .kpi{
+      padding: calc(var(--g) * 2);
+      background: #f3f3f3;
+      border: 2px solid var(--lo);
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+    }
+    .kpi .k{ font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
+    .kpi .v{ margin-top: calc(var(--g) * 1); font-size: 16px; font-weight: 900; letter-spacing: 0.2px; }
+    .tag{
+      display:inline-block;
+      margin-top: calc(var(--g) * 1);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border: 2px solid var(--lo);
+      background: #ffffff;
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+    }
+    .tag.good{ border-color: var(--good); }
+    .tag.warn{ border-color: var(--warn); }
+    .tag.bad{ border-color: var(--bad); }
+
+    /* --- Progress bars --- */
+    .bar{
+      height: calc(var(--g) * 2); /* 16 */
+      border: 2px solid var(--lo);
+      background: #ededed;
+      box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--mid);
+      overflow:hidden;
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      background: linear-gradient(90deg, var(--accent), #6ea0ff);
+      transition: width 900ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .bar.purple > i{
+      background: linear-gradient(90deg, var(--accent2), #b58cff);
+    }
+
+    .muted{ color: var(--muted); }
+    .mono{ font-family: var(--font-mono); }
+
+    /* --- Walkthrough overlay + highlight --- */
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      background: rgba(0,0,0,0.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: calc(var(--g) * 3);
+      backdrop-filter: blur(2px);
+    }
+    .overlay.show{ display:flex; }
+    .dialog{
+      width:min(520px, 100%);
+      padding: calc(var(--g) * 3);
+      background: #e9e9e9;
+      border: 2px solid var(--lo);
+      box-shadow:
+        inset 2px 2px 0 var(--hi),
+        inset -2px -2px 0 var(--mid),
+        0 10px 0 rgba(0,0,0,0.18);
+    }
+    .dialog-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom: calc(var(--g) * 2);
+    }
+    .link{
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent);
+      cursor:pointer;
+      text-decoration: underline;
+      background:none;
+      border:none;
+      padding:0;
+    }
+    .walkthrough-highlight{
+      position: relative;
+      outline: 4px solid rgba(43,103,209,0.35);
+      outline-offset: 2px;
+    }
+
+    /* --- Recap overlay --- */
+    .recap{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: calc(var(--g) * 3);
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(3px);
+    }
+    .recap.show{ display:flex; }
+    .recap-card{
+      width:min(560px, 100%);
+      padding: calc(var(--g) * 3);
+      background: #efefef;
+      border: 2px solid var(--lo);
+      box-shadow:
+        inset 2px 2px 0 var(--hi),
+        inset -2px -2px 0 var(--mid),
+        0 12px 0 rgba(0,0,0,0.22);
+    }
+    .hr{
+      height:2px;
+      background: var(--lo);
+      margin: calc(var(--g) * 3) 0;
+      opacity:0.5;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="window pixel-border" id="app">
+    <div class="titlebar">
+      <div class="title-left">
+        <div class="win-dots">
+          <button class="dot" aria-label="Close"></button>
+          <button class="dot" aria-label="Minimize"></button>
+          <button class="dot" aria-label="Zoom"></button>
+        </div>
+      </div>
+      <div class="title">Questboard <span style="font-family:var(--font-mono); font-weight:800;">✦</span> Mission Window</div>
+      <div class="title-right">
+        <span class="mono" id="clock">--:--</span>
+      </div>
+    </div>
+
+    <div class="menubar">
+      <span class="menuitem">File</span>
+      <span class="menuitem">Edit</span>
+      <span class="menuitem">View</span>
+      <span class="menuitem">Help</span>
+    </div>
+
+    <div class="content">
+
+      <!-- SCREEN 1: SETUP -->
+      <section id="screen-setup" class="stack-24">
+        <div>
+          <div class="kicker">SYSTEM CONFIGURATION</div>
+          <h1 class="h1">Set the win conditions</h1>
+          <p class="sub">Define targets + schedule once. After that: calendar pops → you log → you leave.</p>
+        </div>
+
+        <div class="bevel-out panel stack-24">
+          <div>
+            <label>PLAYER</label>
+            <input id="cfg-name" type="text" value="Elias" />
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label>WEEKLY CHECK-IN DAY</label>
+              <select id="cfg-day">
+                <option>Sunday</option>
+                <option>Monday</option>
+                <option>Tuesday</option>
+                <option>Wednesday</option>
+                <option>Thursday</option>
+                <option>Friday</option>
+                <option>Saturday</option>
+              </select>
+            </div>
+            <div>
+              <label>WEEKLY CHECK-IN TIME</label>
+              <input id="cfg-time" type="time" value="19:00" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label>MONTHLY MINIMUM — DEBT</label>
+              <input id="cfg-debt" class="input-mono" type="number" value="800" />
+            </div>
+            <div>
+              <label>MONTHLY MINIMUM — TRACKS</label>
+              <input id="cfg-tracks" class="input-mono" type="number" value="8" />
+            </div>
+          </div>
+
+          <div>
+            <label>TRUSTED PERSON (OPTIONAL)</label>
+            <input id="cfg-trusted" type="text" placeholder="e.g. Sarah" />
+            <p class="sub" style="margin-top:calc(var(--g)*1);">If used later: they get a monthly snapshot text.</p>
+          </div>
+
+          <div class="bevel-in panel" style="padding:calc(var(--g)*2);">
+            <div class="row" style="align-items:flex-start;">
+              <div>
+                <div class="kicker">ADVANCED (OPTIONAL)</div>
+                <p class="sub">Extra reminders if you want redundancy.</p>
+              </div>
+              <div class="stack-16" style="margin-top:0;">
+                <label style="margin:0; display:flex; gap:calc(var(--g)*1); align-items:center;">
+                  <input id="cfg-midweek" type="checkbox" checked style="width:18px;height:18px;margin:0;" />
+                  <span style="font-family:var(--font-ui); font-size:13px; text-transform:none; letter-spacing:0; color:var(--ink);">Midweek reminder</span>
+                </label>
+                <label style="margin:0; display:flex; gap:calc(var(--g)*1); align-items:center;">
+                  <input id="cfg-prep" type="checkbox" style="width:18px;height:18px;margin:0;" />
+                  <span style="font-family:var(--font-ui); font-size:13px; text-transform:none; letter-spacing:0; color:var(--ink);">Sunday prep reminder</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveConfigAndContinue()">Continue →</button>
+      </section>
+
+      <!-- SCREEN 2: EXPORT -->
+      <section id="screen-export" class="stack-24" style="display:none;">
+        <div>
+          <div class="kicker">CALENDAR INTEGRATION</div>
+          <h1 class="h1">Install the reminders</h1>
+          <p class="sub">This turns your plan into a system. No willpower required.</p>
+        </div>
+
+        <div class="bevel-out panel stack-24">
+          <div class="bevel-in panel" style="padding:calc(var(--g)*2);">
+            <div class="row" style="justify-content:space-between;">
+              <div>
+                <div class="kicker">PACKAGE</div>
+                <div class="sub" style="margin-top:calc(var(--g)*1);">Weekly check-in + monthly reset</div>
+              </div>
+              <div class="mono" id="export-summary">—</div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" onclick="triggerDownload(event)">Generate .ics</button>
+
+          <button id="btn-to-dash" class="btn btn-disabled" onclick="nav('dashboard'); maybeStartWalkthrough();">
+            Enter Dashboard →
+          </button>
+
+          <p class="sub">Tip: after importing, click the event link to open this window directly.</p>
+        </div>
+
+        <button class="btn" onclick="nav('setup')">← Back</button>
+      </section>
+
+      <!-- SCREEN 3: DASHBOARD -->
+      <section id="screen-dashboard" style="display:none;">
+        <div class="row" style="margin-bottom:calc(var(--g)*3);">
+          <div>
+            <div class="kicker">OPERATOR</div>
+            <div class="h1" style="font-size:16px;" id="dash-player">Elias</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="kicker">MONTH RESETS IN</div>
+            <div class="mono" style="font-size:14px; font-weight:900;" id="dash-daysleft">—</div>
+          </div>
+        </div>
+
+        <div class="hud">
+          <div class="kpi">
+            <div class="k">LEVEL</div>
+            <div class="v" id="hud-level">1</div>
+            <div class="tag" id="hud-rank">BRONZE</div>
+          </div>
+          <div class="kpi">
+            <div class="k">STREAK</div>
+            <div class="v" id="hud-streak">0w</div>
+            <div class="tag" id="hud-streaktag">STABLE</div>
+          </div>
+          <div class="kpi">
+            <div class="k">MONTH SCORE</div>
+            <div class="v mono" id="hud-score">0</div>
+            <div class="tag" id="hud-next">NEXT: 400</div>
+          </div>
+          <div class="kpi">
+            <div class="k">PACE</div>
+            <div class="v" id="hud-pace">—</div>
+            <div class="tag" id="hud-pacetag">—</div>
+          </div>
+        </div>
+
+        <div class="dash">
+          <aside class="bevel-out cmd">
+            <div class="cmd-title">COMMAND</div>
+            <button class="cmd-btn active" type="button">LOG WEEK</button>
+            <button class="cmd-btn" type="button" onclick="scrollToCard('card-monthly')">TARGETS</button>
+            <button class="cmd-btn" type="button" onclick="scrollToCard('card-tactics')">TACTICS</button>
+            <button class="cmd-btn" type="button" onclick="nav('export')">EXPORT</button>
+          </aside>
+
+          <main>
+            <!-- Card: Log This Week -->
+            <div id="card-log" class="bevel-out panel stack-24" style="margin-bottom:calc(var(--g)*3);">
+              <div class="row">
+                <div>
+                  <div class="kicker">WEEKLY INPUT</div>
+                  <h2 class="h1" style="font-size:16px; margin-top:calc(var(--g)*1);">Log the numbers</h2>
+                </div>
+                <div class="mono" style="font-size:12px; color:var(--muted);" id="dash-weekstamp">—</div>
+              </div>
+
+              <form id="log-form" onsubmit="handleLogSubmit(event)" class="stack-24">
+                <div class="grid-3">
+                  <div>
+                    <label>DEBT PAID</label>
+                    <input id="input-debt" class="input-mono" type="number" placeholder="0" required />
+                  </div>
+                  <div>
+                    <label>SAVINGS ADDED</label>
+                    <input id="input-savings" class="input-mono" type="number" placeholder="0" required />
+                  </div>
+                  <div>
+                    <label>TRACKS MADE</label>
+                    <input id="input-tracks" class="input-mono" type="number" placeholder="0" required />
+                  </div>
+                </div>
+
+                <button class="btn btn-primary" type="submit">Submit Log →</button>
+                <p class="sub">Rule: log once per week. No random checking.</p>
+              </form>
+            </div>
+
+            <!-- Card: Monthly Minimums -->
+            <div id="card-monthly" class="bevel-out panel stack-24" style="margin-bottom:calc(var(--g)*3);">
+              <div class="row">
+                <div>
+                  <div class="kicker">MONTHLY OBJECTIVES</div>
+                  <h2 class="h1" style="font-size:16px; margin-top:calc(var(--g)*1);">Minimums + pacing</h2>
+                </div>
+                <div class="mono" style="font-size:12px; color:var(--muted);" id="dash-targetline">—</div>
+              </div>
+
+              <div class="stack-16">
+                <div class="row">
+                  <div class="muted">Debt</div>
+                  <div class="mono" id="dash-debt-line">$0 / $0</div>
+                </div>
+                <div class="bar"><i id="dash-debt-bar"></i></div>
+
+                <div class="row" style="margin-top:calc(var(--g)*2);">
+                  <div class="muted">Tracks</div>
+                  <div class="mono" id="dash-tracks-line">0 / 0</div>
+                </div>
+                <div class="bar purple"><i id="dash-tracks-bar"></i></div>
+
+                <div class="hr"></div>
+
+                <div class="row">
+                  <div class="muted">Total Savings</div>
+                  <div class="mono" id="dash-savings-curr">$0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card: Tactics -->
+            <div id="card-tactics" class="bevel-out panel stack-24">
+              <div>
+                <div class="kicker">TACTICS</div>
+                <h2 class="h1" style="font-size:16px; margin-top:calc(var(--g)*1);">One move, this week</h2>
+                <p class="sub" id="tactics-text">—</p>
+              </div>
+              <div class="bevel-in panel" style="padding:calc(var(--g)*2);">
+                <div class="row">
+                  <div class="mono" style="font-weight:900;">NEXT ACTION</div>
+                  <div class="tag" id="tactics-tag">ON DECK</div>
+                </div>
+                <p class="sub" style="margin-top:calc(var(--g)*2);" id="tactics-action">—</p>
+              </div>
+            </div>
+
+          </main>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- WALKTHROUGH OVERLAY -->
+  <div id="walkthrough-overlay" class="overlay" aria-hidden="true">
+    <div class="dialog">
+      <div class="dialog-top">
+        <div class="kicker" id="wt-step">STEP 1 OF 3</div>
+        <button class="link" onclick="endWalkthrough()">Skip</button>
+      </div>
+      <h3 class="h1" style="font-size:16px;" id="wt-title">—</h3>
+      <p class="sub" id="wt-desc">—</p>
+      <div class="row" style="margin-top:calc(var(--g)*3); justify-content:flex-end;">
+        <button class="btn btn-primary" id="wt-btn" onclick="nextWalkthroughStep()">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECAP OVERLAY -->
+  <div id="screen-recap" class="recap" aria-hidden="true">
+    <div class="recap-card stack-24">
+      <div>
+        <div class="kicker">RESULTS</div>
+        <h2 class="h1" style="font-size:18px;">Check-in complete</h2>
+        <p class="sub" id="recap-sub">—</p>
+      </div>
+
+      <div class="bevel-out panel stack-16">
+        <div class="row">
+          <div class="muted">Debt</div>
+          <div class="mono" id="recap-debt-line">$0 → $0</div>
+        </div>
+        <div class="row">
+          <div class="muted">Tracks</div>
+          <div class="mono" id="recap-tracks-line">0 → 0</div>
+        </div>
+        <div class="row">
+          <div class="muted">Savings</div>
+          <div class="mono" id="recap-savings-line">$0 → $0</div>
+        </div>
+      </div>
+
+      <div class="bevel-in panel" style="padding:calc(var(--g)*2);">
+        <div class="row">
+          <div class="mono" style="font-weight:900;">SYSTEM NOTE</div>
+          <div class="tag" id="recap-tag">UPDATED</div>
+        </div>
+        <p class="sub" style="margin-top:calc(var(--g)*2);" id="recap-suggestion">—</p>
+      </div>
+
+      <button class="btn btn-primary" onclick="closeRecap()">Done →</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Time in titlebar (for vibe + clarity) ---
+    function tickClock(){
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
+      document.getElementById('clock').textContent = `${hh}:${mm}`;
+    }
+    tickClock();
+    setInterval(tickClock, 10000);
+
+    // --- State ---
+    const LS_KEY = "questboard_v1";
+    let config = {
+      name: "Elias",
+      day: "Sunday",
+      time: "19:00",
+      targets: { debt: 800, tracks: 8 },
+      trusted: "",
+      midweek: true,
+      prep: false
+    };
+
+    let appState = {
+      targets: { debt: 800, tracks: 8 },
+      current: { debt: 200, savings: 150, tracks: 2 },
+      streakWeeks: 4
+    };
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        if(!raw) return;
+        const parsed = JSON.parse(raw);
+        if(parsed?.config) config = parsed.config;
+        if(parsed?.appState) appState = parsed.appState;
+      } catch(e){}
+    }
+    function saveState(){
+      localStorage.setItem(LS_KEY, JSON.stringify({ config, appState }));
+    }
+
+    // --- Date helpers (pace + days left) ---
+    function monthInfo(){
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const start = new Date(y, m, 1);
+      const end = new Date(y, m + 1, 1);
+      const daysInMonth = Math.round((end - start) / (1000*60*60*24));
+      const dayIndex = now.getDate(); // 1..daysInMonth
+      const daysElapsed = dayIndex - 1;
+      const daysLeft = daysInMonth - dayIndex;
+      const expectedPct = daysElapsed <= 0 ? 0 : (daysElapsed / daysInMonth) * 100;
+      return { daysInMonth, dayIndex, daysLeft, expectedPct };
+    }
+
+    // --- Scoring / ranks (strategy compression) ---
+    function computeScore(){
+      // Weighted so tracks matter like “quests”
+      return Math.round(appState.current.debt + (appState.current.tracks * 100));
+    }
+    function computeLevel(score){
+      return Math.max(1, 1 + Math.floor(score / 400));
+    }
+    function computeRank(score){
+      if(score >= 1200) return { name:"PLATINUM", next:null, nextAt: null };
+      if(score >= 800)  return { name:"GOLD", next:"PLATINUM", nextAt: 1200 };
+      if(score >= 400)  return { name:"SILVER", next:"GOLD", nextAt: 800 };
+      return { name:"BRONZE", next:"SILVER", nextAt: 400 };
+    }
+
+    // --- Navigation ---
+    function nav(screenId){
+      document.getElementById('screen-setup').style.display = "none";
+      document.getElementById('screen-export').style.display = "none";
+      document.getElementById('screen-dashboard').style.display = "none";
+      document.getElementById(`screen-${screenId}`).style.display = "block";
+      window.scrollTo(0, 0);
+    }
+
+    function scrollToCard(id){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    // --- Setup save ---
+    function saveConfigAndContinue(){
+      config.name = (document.getElementById('cfg-name').value || "Elias").trim();
+      config.day = document.getElementById('cfg-day').value;
+      config.time = document.getElementById('cfg-time').value || "19:00";
+      config.targets.debt = Number(document.getElementById('cfg-debt').value) || 0;
+      config.targets.tracks = Number(document.getElementById('cfg-tracks').value) || 0;
+      config.trusted = (document.getElementById('cfg-trusted').value || "").trim();
+      config.midweek = !!document.getElementById('cfg-midweek').checked;
+      config.prep = !!document.getElementById('cfg-prep').checked;
+
+      appState.targets.debt = config.targets.debt;
+      appState.targets.tracks = config.targets.tracks;
+
+      saveState();
+      document.getElementById('export-summary').textContent = `${config.day} @ ${config.time}`;
+      nav('export');
+    }
+
+    // --- Export (.ics) ---
+    function triggerDownload(e){
+      // Minimal .ics that works for most imports (weekly + monthly reset)
+      const uid = () => Math.random().toString(16).slice(2) + "@questboard";
+      const pad2 = (n) => String(n).padStart(2,'0');
+
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const startMonth = new Date(y, m, 1);
+
+      // Find next occurrence of chosen weekday
+      const dowMap = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 };
+      const targetDow = dowMap[config.day] ?? 0;
+      const next = new Date(now);
+      while(next.getDay() !== targetDow) next.setDate(next.getDate() + 1);
+
+      const [hh, mm] = (config.time || "19:00").split(":").map(Number);
+      next.setHours(hh || 19, mm || 0, 0, 0);
+
+      // DTSTART in local-ish floating time (simple)
+      const dt = (d) => (
+        d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate()) +
+        "T" + pad2(d.getHours()) + pad2(d.getMinutes()) + "00"
+      );
+
+      const monthReset = new Date(startMonth);
+      monthReset.setMonth(monthReset.getMonth()+1);
+      monthReset.setHours(9,0,0,0);
+
+      const appLink = location.href; // opens this file’s URL if hosted
+
+      const ics =
+`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Questboard//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:${uid()}
+DTSTAMP:${dt(now)}
+DTSTART:${dt(next)}
+SUMMARY:Questboard — Weekly Check-in
+DESCRIPTION:Log your three numbers. ${appLink}
+RRULE:FREQ=WEEKLY
+END:VEVENT
+BEGIN:VEVENT
+UID:${uid()}
+DTSTAMP:${dt(now)}
+DTSTART:${dt(monthReset)}
+SUMMARY:Questboard — Monthly Reset
+DESCRIPTION:New month. Review targets + pacing. ${appLink}
+RRULE:FREQ=MONTHLY
+END:VEVENT
+END:VCALENDAR`;
+
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "questboard.ics";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      // Enable dashboard entry
+      const btn = document.getElementById('btn-to-dash');
+      btn.classList.remove('btn-disabled');
+
+      saveState();
+    }
+
+    // --- Walkthrough ---
+    let wtStep = 1;
+    function maybeStartWalkthrough(){
+      const done = localStorage.getItem("questboard_wt_done");
+      if(done === "1") return;
+      initWalkthrough();
+    }
+    function initWalkthrough(){
+      wtStep = 1;
+      document.getElementById('walkthrough-overlay').classList.add('show');
+      updateWalkthroughUI();
+    }
+    function nextWalkthroughStep(){
+      wtStep++;
+      if(wtStep > 3) endWalkthrough();
+      else updateWalkthroughUI();
+    }
+    function endWalkthrough(){
+      document.getElementById('walkthrough-overlay').classList.remove('show');
+      document.getElementById('card-log')?.classList.remove('walkthrough-highlight');
+      document.getElementById('card-monthly')?.classList.remove('walkthrough-highlight');
+      localStorage.setItem("questboard_wt_done", "1");
+    }
+    function updateWalkthroughUI(){
+      const title = document.getElementById('wt-title');
+      const desc = document.getElementById('wt-desc');
+      const stepTxt = document.getElementById('wt-step');
+      const btn = document.getElementById('wt-btn');
+
+      const cardLog = document.getElementById('card-log');
+      const cardMonthly = document.getElementById('card-monthly');
+
+      stepTxt.textContent = `STEP ${wtStep} OF 3`;
+      cardLog.classList.remove('walkthrough-highlight');
+      cardMonthly.classList.remove('walkthrough-highlight');
+
+      if(wtStep === 1){
+        cardLog.classList.add('walkthrough-highlight');
+        title.textContent = "LOG WEEKLY";
+        desc.textContent = "Once per week, enter the three numbers. This is the only required input.";
+        btn.textContent = "Next →";
+      } else if(wtStep === 2){
+        cardMonthly.classList.add('walkthrough-highlight');
+        title.textContent = "READ PACE, NOT FEELINGS";
+        desc.textContent = "Your month has a clock. The system tells you ahead/on-pace/behind.";
+        btn.textContent = "Next →";
+      } else {
+        title.textContent = "OBEY THE CALENDAR";
+        desc.textContent = "Don’t open this randomly. When the calendar event fires, click, log, close.";
+        btn.textContent = "Start →";
+      }
+    }
+
+    // --- UI updates ---
+    function paceTag(pct, expected){
+      const delta = pct - expected;
+      if(delta >= 8) return { label:"AHEAD", cls:"good" };
+      if(delta <= -8) return { label:"BEHIND", cls:"bad" };
+      return { label:"ON PACE", cls:"warn" };
+    }
+
+    function updateDashboardUI(){
+      // Header
+      document.getElementById('dash-player').textContent = config.name || "Elias";
+      const mi = monthInfo();
+      document.getElementById('dash-daysleft').textContent = `${mi.daysLeft} days`;
+
+      // Month targets line
+      document.getElementById('dash-targetline').textContent =
+        `Debt $${appState.targets.debt} · Tracks ${appState.targets.tracks}`;
+
+      // Progress
+      const debtPct = appState.targets.debt > 0 ? Math.min((appState.current.debt / appState.targets.debt) * 100, 100) : 0;
+      const tracksPct = appState.targets.tracks > 0 ? Math.min((appState.current.tracks / appState.targets.tracks) * 100, 100) : 0;
+
+      document.getElementById('dash-debt-line').textContent = `$${appState.current.debt} / $${appState.targets.debt}`;
+      document.getElementById('dash-tracks-line').textContent = `${appState.current.tracks} / ${appState.targets.tracks}`;
+      document.getElementById('dash-savings-curr').textContent = `$${appState.current.savings}`;
+
+      document.getElementById('dash-debt-bar').style.width = `${debtPct}%`;
+      document.getElementById('dash-tracks-bar').style.width = `${tracksPct}%`;
+
+      // HUD
+      const score = computeScore();
+      const level = computeLevel(score);
+      const rank = computeRank(score);
+
+      document.getElementById('hud-score').textContent = String(score);
+      document.getElementById('hud-level').textContent = String(level);
+      document.getElementById('hud-rank').textContent = rank.name;
+
+      document.getElementById('hud-streak').textContent = `${appState.streakWeeks}w`;
+      document.getElementById('hud-streaktag').textContent = appState.streakWeeks >= 8 ? "HARDENED" : (appState.streakWeeks >= 4 ? "SOLID" : "BUILDING");
+
+      document.getElementById('hud-next').textContent = rank.nextAt ? `NEXT: ${rank.nextAt}` : "MAX";
+
+      // Pace signal (use the weaker of the two objective pcts)
+      const objectivePct = Math.min(debtPct, tracksPct);
+      const pace = paceTag(objectivePct, mi.expectedPct);
+      document.getElementById('hud-pace').textContent = pace.label;
+
+      const paceTagEl = document.getElementById('hud-pacetag');
+      paceTagEl.className = `tag ${pace.cls}`;
+      paceTagEl.textContent = `${Math.round(objectivePct)}% vs ${Math.round(mi.expectedPct)}%`;
+
+      // Tactics (simple, strategic)
+      const tText = document.getElementById('tactics-text');
+      const tAction = document.getElementById('tactics-action');
+      const tTag = document.getElementById('tactics-tag');
+
+      if(tracksPct < mi.expectedPct - 8){
+        tText.textContent = "Tracks are behind the month clock. Fix the bottleneck with a single protected block.";
+        tAction.textContent = "Schedule 1× 60–90 min track session in the next 72 hours. Treat it like a meeting.";
+        tTag.textContent = "TRACKS";
+      } else if(debtPct < mi.expectedPct - 8){
+        tText.textContent = "Debt is behind pace. Reduce decision-fatigue with one automatic move.";
+        tAction.textContent = "Set (or increase) an automatic weekly transfer/payment, even if small.";
+        tTag.textContent = "DEBT";
+      } else {
+        tText.textContent = "You’re on pace. Don’t over-touch the system. Protect consistency.";
+        tAction.textContent = "Do nothing extra. Wait for the next calendar event, then log once.";
+        tTag.textContent = "MAINTAIN";
+      }
+
+      // Week stamp (simple)
+      const d = new Date();
+      document.getElementById('dash-weekstamp').textContent = `${d.toLocaleDateString(undefined, { month:"short", day:"2-digit" })}`;
+    }
+
+    // --- Submit log + recap ---
+    function handleLogSubmit(e){
+      e.preventDefault();
+
+      const addedDebt = Number(document.getElementById('input-debt').value) || 0;
+      const addedSavings = Number(document.getElementById('input-savings').value) || 0;
+      const addedTracks = Number(document.getElementById('input-tracks').value) || 0;
+
+      const old = { ...appState.current };
+
+      appState.current.debt += addedDebt;
+      appState.current.savings += addedSavings;
+      appState.current.tracks += addedTracks;
+
+      // streak bump (simple: every submit increments)
+      appState.streakWeeks = (appState.streakWeeks || 0) + 1;
+
+      saveState();
+
+      // Recap UI
+      document.getElementById('recap-sub').textContent = `Streak: ${appState.streakWeeks} weeks · Score: ${computeScore()}`;
+      document.getElementById('recap-debt-line').textContent = `$${old.debt} → $${appState.current.debt}`;
+      document.getElementById('recap-tracks-line').textContent = `${old.tracks} → ${appState.current.tracks}`;
+      document.getElementById('recap-savings-line').textContent = `$${old.savings} → $${appState.current.savings}`;
+
+      const debtPct = appState.targets.debt > 0 ? (appState.current.debt / appState.targets.debt) * 100 : 0;
+      const tracksPct = appState.targets.tracks > 0 ? (appState.current.tracks / appState.targets.tracks) * 100 : 0;
+
+      const suggestionEl = document.getElementById('recap-suggestion');
+      const tagEl = document.getElementById('recap-tag');
+
+      if(tracksPct < debtPct){
+        tagEl.textContent = "TRACKS";
+        suggestionEl.textContent = "Tracks are the limiting factor. Protect one focused session before midweek.";
+      } else if(debtPct < tracksPct){
+        tagEl.textContent = "DEBT";
+        suggestionEl.textContent = "Debt pacing is trailing. Find one automatic payment move to remove friction.";
+      } else {
+        tagEl.textContent = "EVEN";
+        suggestionEl.textContent = "Balanced progress. Close the window and wait for the next calendar event.";
+      }
+
+      document.getElementById('screen-recap').classList.add('show');
+      document.getElementById('log-form').reset();
+    }
+
+    function closeRecap(){
+      document.getElementById('screen-recap').classList.remove('show');
+      updateDashboardUI();
+    }
+
+    // --- Init ---
+    loadState();
+
+    // hydrate setup inputs from saved state
+    document.getElementById('cfg-name').value = config.name || "Elias";
+    document.getElementById('cfg-day').value = config.day || "Sunday";
+    document.getElementById('cfg-time').value = config.time || "19:00";
+    document.getElementById('cfg-debt').value = config.targets?.debt ?? 800;
+    document.getElementById('cfg-tracks').value = config.targets?.tracks ?? 8;
+    document.getElementById('cfg-trusted').value = config.trusted || "";
+    document.getElementById('cfg-midweek').checked = !!config.midweek;
+    document.getElementById('cfg-prep').checked = !!config.prep;
+
+    // sync targets
+    appState.targets.debt = config.targets?.debt ?? appState.targets.debt;
+    appState.targets.tracks = config.targets?.tracks ?? appState.targets.tracks;
+
+    updateDashboardUI();
+    nav('setup');
+  </script>
+</body>
+</html>
