@@ -119,7 +119,6 @@ function App() {
 
     const cleaned = clearProgressState(questStateRef.current)
     persistState(cleaned)
-    setSyncMessage('Starter demo data was removed.')
   }, [persistState, questState])
 
   const applyPulledState = useCallback(

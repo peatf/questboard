@@ -32,6 +32,9 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_SYNC_ENABLED: "true"
+          VITE_SYNC_API_BASE: "https://questboard-sync.peathefeary.workers.dev"
         run: npm run build
 
       - name: Setup Pages
