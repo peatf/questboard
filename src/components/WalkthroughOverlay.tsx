@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 interface WalkthroughOverlayProps {
   show: boolean
   step: number
+  totalSteps: number
   title: string
   description: string
   buttonLabel: string
@@ -27,6 +28,7 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
 export function WalkthroughOverlay({
   show,
   step,
+  totalSteps,
   title,
   description,
   buttonLabel,
@@ -88,7 +90,7 @@ export function WalkthroughOverlay({
         aria-describedby="wt-desc"
       >
         <div className="dialog-top">
-          <div className="kicker" id="wt-step">{`Step ${step} of 3`}</div>
+          <div className="kicker" id="wt-step">{`Step ${step} of ${totalSteps}`}</div>
           <button className="link" onClick={onSkip} type="button">
             Skip
           </button>

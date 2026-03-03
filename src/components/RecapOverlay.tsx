@@ -5,6 +5,8 @@ interface ProgressSnapshot {
   debt: number
   tracks: number
   savings: number
+  requiredSpend: number
+  discretionarySpend: number
 }
 
 export interface RecapData {
@@ -12,8 +14,10 @@ export interface RecapData {
   after: ProgressSnapshot
   streakWeeks: number
   score: number
-  suggestionTag: 'TRACKS' | 'DEBT' | 'EVEN'
+  suggestionTag: 'TRACKS' | 'DEBT' | 'EVEN' | 'FINANCE'
   suggestionText: string
+  financeVerdict: 'ON PACE' | 'CATCH-UP NEEDED'
+  financeXpEarned: number
 }
 
 interface RecapOverlayProps {
@@ -118,14 +122,36 @@ export function RecapOverlay({ recap, onClose }: RecapOverlayProps) {
               recap.after.savings,
             )}`}</div>
           </div>
+          <div className="row">
+            <div className="muted">Required spend</div>
+            <div className="mono">{`${formatMoney(recap.before.requiredSpend)} → ${formatMoney(
+              recap.after.requiredSpend,
+            )}`}</div>
+          </div>
+          <div className="row">
+            <div className="muted">Fun spend</div>
+            <div className="mono">{`${formatMoney(recap.before.discretionarySpend)} → ${formatMoney(
+              recap.after.discretionarySpend,
+            )}`}</div>
+          </div>
         </div>
 
-        <div className="bevel-in panel panel-tight">
+        <div className="bevel-in panel panel-tight stack-16">
           <div className="row">
             <div className="mono next-action">SYSTEM NOTE</div>
             <div className="tag">{recap.suggestionTag}</div>
           </div>
-          <p className="sub sub-top-16">{recap.suggestionText}</p>
+          <p className="sub">{recap.suggestionText}</p>
+          <div className="row">
+            <div className="muted">Finance verdict</div>
+            <div className={`tag ${recap.financeVerdict === 'ON PACE' ? 'good' : 'warn'}`}>
+              {recap.financeVerdict}
+            </div>
+          </div>
+          <div className="row">
+            <div className="muted">Finance XP earned</div>
+            <div className="mono">{recap.financeXpEarned}</div>
+          </div>
         </div>
 
         <button className="btn btn-primary" onClick={onClose} type="button">

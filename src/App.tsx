@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DashboardScreen } from './components/DashboardScreen'
 import { RecapOverlay, type RecapData } from './components/RecapOverlay'
 import { ReminderScreen } from './components/ReminderScreen'
@@ -6,20 +6,32 @@ import { SetupScreen } from './components/SetupScreen'
 import { SyncConflictOverlay, SyncPanel } from './components/SyncPanel'
 import { WalkthroughOverlay } from './components/WalkthroughOverlay'
 import { WindowShell } from './components/WindowShell'
+import { FINANCE_WALKTHROUGH_STEPS, FINANCE_WALKTHROUGH_VERSION } from './content/financeWalkthrough'
 import {
   QUESTBOARD_STATE_SAVED_EVENT,
   DEFAULT_SYNC_CONFIG,
   clearProgressState,
   clampNonNegative,
+  computeBudgetAvailability,
+  computeFinanceXp,
+  computeMonthSpendingFromLogs,
   computeProgressPct,
+  computeSavingsTargets,
   computeScore,
   downloadReminderIcs,
   formatClock,
+  getWeekKey,
   isLegacyDemoSeedState,
-  isWalkthroughComplete,
+  isLogOnTime,
+  isWeeklyLogOverdue,
   loadQuestboardState,
+  markWalkthroughCompleted,
+  markWalkthroughShown,
+  markWalkthroughSkipped,
+  recalculateProgressFromLogs,
   saveQuestboardState,
-  setWalkthroughComplete,
+  shouldShowWalkthrough,
+  type FinanceLogEntry,
   type QuestboardState,
   type QuestboardStateSavedEventDetail,
   type SaveStateSource,
@@ -41,6 +53,7 @@ import {
 
 type Screen = 'setup' | 'reminder' | 'dashboard'
 type SyncStatus = 'not-enabled' | 'syncing' | 'synced' | 'offline' | 'error'
+type WalkthroughOpenSource = 'auto' | 'manual'
 
 interface PendingConflict {
   cloud: PullResult
@@ -79,6 +92,13 @@ function syncStatusLabel(status: SyncStatus): string {
   }
 }
 
+function createLogId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `log-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 function App() {
   const [questState, setQuestState] = useState<QuestboardState>(() => loadQuestboardState())
   const [screen, setScreen] = useState<Screen>('setup')
@@ -86,6 +106,7 @@ function App() {
 
   const [walkthroughOpen, setWalkthroughOpen] = useState(false)
   const [walkthroughStep, setWalkthroughStep] = useState(1)
+  const [walkthroughOpenSource, setWalkthroughOpenSource] = useState<WalkthroughOpenSource | null>(null)
 
   const [pendingState, setPendingState] = useState<QuestboardState | null>(null)
   const [recap, setRecap] = useState<RecapData | null>(null)
@@ -99,6 +120,7 @@ function App() {
   const syncPushTimerRef = useRef<number | null>(null)
   const dirtySincePullRef = useRef(false)
   const syncInFlightRef = useRef(false)
+  const walkthroughAutoShownThisSessionRef = useRef(false)
 
   const syncAvailable = SYNC_ENABLED_FLAG && HAS_SYNC_API
 
@@ -132,7 +154,7 @@ function App() {
       const deviceId = current.sync.deviceId || createDeviceId()
       const nextState: QuestboardState = {
         ...pulled.state,
-        schemaVersion: 2,
+        schemaVersion: 3,
         sync: {
           enabled: true,
           vaultId: credentials.vaultId,
@@ -440,26 +462,7 @@ function App() {
     }
   }, [performPull, performPush, syncAvailable])
 
-  const walkthroughContent = useMemo(
-    () => [
-      {
-        title: 'Log weekly',
-        description: "Once per week, enter debt, savings, and tracks. That's the only required input.",
-        button: 'Next →',
-      },
-      {
-        title: 'Watch monthly targets',
-        description: 'Use the bars and pace signal to stay on your monthly minimum targets.',
-        button: 'Next →',
-      },
-      {
-        title: 'Follow the calendar rule',
-        description: 'Open from the reminder event, log once, then close.',
-        button: 'Start →',
-      },
-    ],
-    [],
-  )
+  const walkthroughContent = FINANCE_WALKTHROUGH_STEPS
 
   const handleSetupContinue = (nextConfig: QuestboardState['config']) => {
     const nextState: QuestboardState = {
@@ -564,17 +567,99 @@ function App() {
       debt: clampNonNegative(entry.debt),
       savings: clampNonNegative(entry.savings),
       tracks: clampNonNegative(entry.tracks),
+      requiredSpend: clampNonNegative(entry.requiredSpend),
+      discretionarySpend: clampNonNegative(entry.discretionarySpend),
+      note: (entry.note ?? '').trim(),
     }
 
-    const before = { ...questState.appState.current }
-    const nextAppState: QuestboardState['appState'] = {
-      ...questState.appState,
+    const current = questState.appState
+    const now = new Date()
+    const nowWeekKey = getWeekKey(now)
+    const existingLogs = current.logs
+
+    const existingDerived = recalculateProgressFromLogs(existingLogs)
+    const baseline = {
       current: {
-        debt: questState.appState.current.debt + cleaned.debt,
-        savings: questState.appState.current.savings + cleaned.savings,
-        tracks: questState.appState.current.tracks + cleaned.tracks,
+        debt: Math.max(0, current.current.debt - existingDerived.current.debt),
+        savings: Math.max(0, current.current.savings - existingDerived.current.savings),
+        tracks: Math.max(0, current.current.tracks - existingDerived.current.tracks),
       },
-      streakWeeks: (questState.appState.streakWeeks || 0) + 1,
+      spending: {
+        required: Math.max(0, current.spending.required - existingDerived.spending.required),
+        discretionary: Math.max(0, current.spending.discretionary - existingDerived.spending.discretionary),
+      },
+      streakWeeks: Math.max(0, current.streakWeeks - existingDerived.streakWeeks),
+      financeXp: Math.max(0, current.financeXp - existingDerived.financeXp),
+    }
+
+    const matchingWeekLog = existingLogs.find((log) => log.weekKey === nowWeekKey)
+    const activeLogId = entry.logId ?? matchingWeekLog?.id ?? null
+
+    const oldLog = activeLogId ? existingLogs.find((log) => log.id === activeLogId) ?? null : null
+
+    const monthlySpending = computeMonthSpendingFromLogs(existingLogs, now)
+    const savingsTargets = computeSavingsTargets(questState.config.budgetPlan, current.current.savings, now)
+    const budgetAvailability = computeBudgetAvailability(
+      questState.config.budgetPlan,
+      monthlySpending,
+      now,
+      current.current.savings,
+    )
+
+    const provisionalLog: FinanceLogEntry = {
+      id: oldLog?.id ?? createLogId(),
+      weekKey: oldLog?.weekKey ?? nowWeekKey,
+      loggedAt: oldLog?.loggedAt ?? now.getTime(),
+      debtPaid: cleaned.debt,
+      savingsAdded: cleaned.savings,
+      tracksMade: cleaned.tracks,
+      requiredSpend: cleaned.requiredSpend,
+      discretionarySpend: cleaned.discretionarySpend,
+      note: cleaned.note,
+      financeXp: 0,
+    }
+
+    const isOnTime = isLogOnTime(questState.config, provisionalLog.weekKey, provisionalLog.loggedAt)
+
+    const financeXp = computeFinanceXp(provisionalLog, {
+      weeklySavingsTarget: savingsTargets.weeklySavingsTarget,
+      weeklyDiscretionaryBudget: budgetAvailability.weeklyDiscretionaryBudget,
+      isOnTime,
+    })
+
+    const nextLog: FinanceLogEntry = {
+      ...provisionalLog,
+      financeXp,
+    }
+
+    const nextLogs = oldLog
+      ? existingLogs.map((log) => (log.id === oldLog.id ? nextLog : log))
+      : [...existingLogs, nextLog]
+
+    const recalculated = recalculateProgressFromLogs(nextLogs)
+
+    const before = {
+      debt: current.current.debt,
+      savings: current.current.savings,
+      tracks: current.current.tracks,
+      requiredSpend: current.spending.required,
+      discretionarySpend: current.spending.discretionary,
+    }
+
+    const nextAppState: QuestboardState['appState'] = {
+      ...current,
+      current: {
+        debt: baseline.current.debt + recalculated.current.debt,
+        savings: baseline.current.savings + recalculated.current.savings,
+        tracks: baseline.current.tracks + recalculated.current.tracks,
+      },
+      spending: {
+        required: baseline.spending.required + recalculated.spending.required,
+        discretionary: baseline.spending.discretionary + recalculated.spending.discretionary,
+      },
+      streakWeeks: baseline.streakWeeks + recalculated.streakWeeks,
+      financeXp: baseline.financeXp + recalculated.financeXp,
+      logs: nextLogs.sort((a, b) => a.loggedAt - b.loggedAt),
     }
 
     const debtPct = computeProgressPct(nextAppState.current.debt, nextAppState.targets.debt)
@@ -591,15 +676,35 @@ function App() {
       suggestionText = 'Debt pace is trailing. Set one automatic payment to remove friction.'
     }
 
+    const savingsAfter = computeSavingsTargets(questState.config.budgetPlan, nextAppState.current.savings, now)
+    const financeVerdict: RecapData['financeVerdict'] =
+      savingsAfter.projectedGap > 0 ? 'CATCH-UP NEEDED' : 'ON PACE'
+
+    if (financeVerdict === 'CATCH-UP NEEDED') {
+      suggestionTag = 'FINANCE'
+      suggestionText =
+        savingsAfter.projectedGap >= savingsAfter.weeklySavingsTarget
+          ? 'Savings pace is over a week behind. Reduce discretionary spend or add one extra transfer this week.'
+          : 'Savings pace is slightly behind. Make one small catch-up transfer this week.'
+    }
+
     const nextState: QuestboardState = { ...questState, appState: nextAppState }
     setPendingState(nextState)
     setRecap({
       before,
-      after: { ...nextAppState.current },
+      after: {
+        debt: nextAppState.current.debt,
+        savings: nextAppState.current.savings,
+        tracks: nextAppState.current.tracks,
+        requiredSpend: nextAppState.spending.required,
+        discretionarySpend: nextAppState.spending.discretionary,
+      },
       streakWeeks: nextAppState.streakWeeks,
       score: computeScore(nextAppState),
       suggestionTag,
       suggestionText,
+      financeVerdict,
+      financeXpEarned: financeXp,
     })
   }
 
@@ -611,26 +716,89 @@ function App() {
     setRecap(null)
   }
 
-  const completeWalkthrough = () => {
+  const closeWalkthrough = () => {
     setWalkthroughOpen(false)
     setWalkthroughStep(1)
-    setWalkthroughComplete()
+    setWalkthroughOpenSource(null)
+  }
+
+  const openWalkthrough = (source: WalkthroughOpenSource) => {
+    setWalkthroughOpenSource(source)
+    setWalkthroughStep(1)
+    setWalkthroughOpen(true)
+
+    if (source === 'manual') {
+      emitTelemetry('finance_walkthrough_manual_open', { version: FINANCE_WALKTHROUGH_VERSION })
+    }
+  }
+
+  const skipWalkthrough = () => {
+    const source = walkthroughOpenSource ?? 'manual'
+    const step = walkthroughStep
+    closeWalkthrough()
+
+    if (source === 'auto') {
+      markWalkthroughSkipped(FINANCE_WALKTHROUGH_VERSION)
+    }
+
+    emitTelemetry('finance_walkthrough_skipped', {
+      version: FINANCE_WALKTHROUGH_VERSION,
+      source,
+      step,
+    })
+  }
+
+  const completeWalkthrough = () => {
+    const source = walkthroughOpenSource ?? 'manual'
+    closeWalkthrough()
+    markWalkthroughCompleted(FINANCE_WALKTHROUGH_VERSION)
+    emitTelemetry('finance_walkthrough_completed', {
+      version: FINANCE_WALKTHROUGH_VERSION,
+      source,
+    })
   }
 
   const enterDashboard = () => {
     setScreen('dashboard')
-    if (isWalkthroughComplete()) {
+    if (walkthroughAutoShownThisSessionRef.current) {
       return
     }
-    setWalkthroughStep(1)
-    setWalkthroughOpen(true)
+    if (!shouldShowWalkthrough(FINANCE_WALKTHROUGH_VERSION)) {
+      return
+    }
+
+    walkthroughAutoShownThisSessionRef.current = true
+    markWalkthroughShown(FINANCE_WALKTHROUGH_VERSION)
+    openWalkthrough('auto')
+    emitTelemetry('finance_walkthrough_shown', { version: FINANCE_WALKTHROUGH_VERSION })
   }
 
   const walkthroughTarget: WalkthroughTarget | null =
-    !walkthroughOpen ? null : walkthroughStep === 1 ? 'log' : walkthroughStep === 2 ? 'monthly' : 'calendar'
+    !walkthroughOpen ? null : walkthroughStep <= 2 ? 'log' : walkthroughStep === 3 ? 'monthly' : 'calendar'
 
   const activeWalkthrough = walkthroughContent[Math.max(0, walkthroughStep - 1)]
   const syncLink = questState.sync.enabled ? getSyncLink(questState.sync.vaultId, questState.sync.syncKey) : null
+
+  const weeklyOverdue = isWeeklyLogOverdue(questState.config, questState.appState.logs)
+  const currentSavingsTargets = computeSavingsTargets(questState.config.budgetPlan, questState.appState.current.savings)
+  const paceAlertLevel: 'urgent' | 'caution' | null =
+    currentSavingsTargets.projectedGap >= currentSavingsTargets.weeklySavingsTarget &&
+    currentSavingsTargets.projectedGap > 0
+      ? 'urgent'
+      : currentSavingsTargets.projectedGap > 0
+        ? 'caution'
+        : null
+
+  const paceAlertMessage =
+    paceAlertLevel === 'urgent'
+      ? `Projected year-end shortfall is ${Math.round(
+          currentSavingsTargets.projectedGap,
+        )}, at least one weekly target behind.`
+      : paceAlertLevel === 'caution'
+        ? `Projected year-end shortfall is ${Math.round(
+            currentSavingsTargets.projectedGap,
+          )}. Small catch-up recommended this week.`
+        : ''
 
   const onKeepLocal = () => {
     const conflict = pendingConflict
@@ -662,6 +830,7 @@ function App() {
         {screen === 'setup' && (
           <SetupScreen
             config={questState.config}
+            currentSavings={questState.appState.current.savings}
             onContinue={handleSetupContinue}
             syncAvailable={syncAvailable}
             syncEnabled={questState.sync.enabled}
@@ -693,10 +862,16 @@ function App() {
             appState={questState.appState}
             highlightTarget={walkthroughTarget}
             onSubmitLog={handleWeeklySubmit}
+            onOpenWhatsNew={() => openWalkthrough('manual')}
             onOpenReminder={() => setScreen('reminder')}
             onOpenSync={() => setSyncPanelOpen(true)}
             syncStatusLabel={syncStatusLabel(syncStatus)}
             syncEnabled={questState.sync.enabled}
+            weeklyOverdue={weeklyOverdue}
+            paceAlert={{
+              level: paceAlertLevel,
+              message: paceAlertMessage,
+            }}
           />
         )}
       </WindowShell>
@@ -704,12 +879,13 @@ function App() {
       <WalkthroughOverlay
         show={walkthroughOpen}
         step={walkthroughStep}
+        totalSteps={walkthroughContent.length}
         title={activeWalkthrough?.title ?? ''}
         description={activeWalkthrough?.description ?? ''}
         buttonLabel={activeWalkthrough?.button ?? 'Next →'}
-        onSkip={completeWalkthrough}
+        onSkip={skipWalkthrough}
         onNext={() => {
-          if (walkthroughStep >= 3) {
+          if (walkthroughStep >= walkthroughContent.length) {
             completeWalkthrough()
             return
           }

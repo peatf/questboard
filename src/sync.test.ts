@@ -3,7 +3,7 @@ import { decryptState, encryptState, parseSyncHash } from './sync'
 import type { QuestboardState } from './state'
 
 const sampleState: QuestboardState = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   config: {
     name: 'Elias',
     day: 'Sunday',
@@ -12,11 +12,34 @@ const sampleState: QuestboardState = {
     trusted: '',
     midweek: true,
     prep: false,
+    budgetPlan: {
+      monthlyIncome: 4000,
+      monthlyFixedBills: 2200,
+      eoySavingsGoal: 10000,
+      goalYear: 2026,
+      goalStartAt: 1704067200000,
+    },
   },
   appState: {
     targets: { debt: 800, tracks: 8 },
     current: { debt: 200, savings: 150, tracks: 2 },
+    spending: { required: 300, discretionary: 120 },
     streakWeeks: 4,
+    financeXp: 80,
+    logs: [
+      {
+        id: 'log-1',
+        weekKey: '2026-W01',
+        loggedAt: 1704067200000,
+        debtPaid: 50,
+        tracksMade: 1,
+        savingsAdded: 75,
+        requiredSpend: 120,
+        discretionarySpend: 45,
+        note: 'Seed log',
+        financeXp: 40,
+      },
+    ],
   },
   reminderSaved: false,
   sync: {

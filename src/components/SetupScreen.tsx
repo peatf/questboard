@@ -1,8 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { clampNonNegative, type QuestConfig } from '../state'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  clampNonNegative,
+  computeBudgetAvailability,
+  computeSavingsTargets,
+  formatMoney,
+  type QuestConfig,
+} from '../state'
 
 interface SetupScreenProps {
   config: QuestConfig
+  currentSavings: number
   onContinue: (config: QuestConfig) => void
   syncAvailable: boolean
   syncEnabled: boolean
@@ -15,6 +22,7 @@ interface SetupScreenProps {
 
 export function SetupScreen({
   config,
+  currentSavings,
   onContinue,
   syncAvailable,
   syncEnabled,
@@ -34,6 +42,16 @@ export function SetupScreen({
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  const preview = useMemo(() => {
+    const savingsTargets = computeSavingsTargets(form.budgetPlan, currentSavings)
+    const availability = computeBudgetAvailability(form.budgetPlan, { required: 0, discretionary: 0 }, new Date(), currentSavings)
+    return {
+      weeklySavingsTarget: savingsTargets.weeklySavingsTarget,
+      monthlySavingsTarget: savingsTargets.monthlySavingsTarget,
+      weeklyDiscretionaryBudget: availability.weeklyDiscretionaryBudget,
+    }
+  }, [currentSavings, form.budgetPlan])
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
     onContinue({
@@ -43,6 +61,13 @@ export function SetupScreen({
       targets: {
         debt: clampNonNegative(form.targets.debt),
         tracks: clampNonNegative(form.targets.tracks),
+      },
+      budgetPlan: {
+        monthlyIncome: clampNonNegative(form.budgetPlan.monthlyIncome),
+        monthlyFixedBills: clampNonNegative(form.budgetPlan.monthlyFixedBills),
+        eoySavingsGoal: clampNonNegative(form.budgetPlan.eoySavingsGoal),
+        goalYear: Math.max(new Date().getFullYear(), clampNonNegative(form.budgetPlan.goalYear)),
+        goalStartAt: form.budgetPlan.goalStartAt,
       },
     })
   }
@@ -58,7 +83,7 @@ export function SetupScreen({
       <form className="stack-24" onSubmit={handleSubmit}>
         <div className="bevel-out panel stack-24">
           <div>
-              <label htmlFor="cfg-name">Operator Name</label>
+            <label htmlFor="cfg-name">Operator Name</label>
             <input
               id="cfg-name"
               type="text"
@@ -129,6 +154,115 @@ export function SetupScreen({
                   }))
                 }
               />
+            </div>
+          </div>
+
+          <div className="bevel-in panel panel-tight stack-24">
+            <div>
+              <div className="kicker">Budget Mission</div>
+              <p className="sub">Set your spending constraints and end-of-year savings objective.</p>
+            </div>
+
+            <div className="grid-2">
+              <div>
+                <label htmlFor="cfg-income">Monthly take-home income</label>
+                <input
+                  id="cfg-income"
+                  className="input-mono"
+                  type="number"
+                  min={0}
+                  value={form.budgetPlan.monthlyIncome}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      budgetPlan: {
+                        ...current.budgetPlan,
+                        monthlyIncome: Number(event.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label htmlFor="cfg-bills">Monthly fixed bills</label>
+                <input
+                  id="cfg-bills"
+                  className="input-mono"
+                  type="number"
+                  min={0}
+                  value={form.budgetPlan.monthlyFixedBills}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      budgetPlan: {
+                        ...current.budgetPlan,
+                        monthlyFixedBills: Number(event.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid-2">
+              <div>
+                <label htmlFor="cfg-eoy-goal">End-of-year savings goal</label>
+                <input
+                  id="cfg-eoy-goal"
+                  className="input-mono"
+                  type="number"
+                  min={0}
+                  value={form.budgetPlan.eoySavingsGoal}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      budgetPlan: {
+                        ...current.budgetPlan,
+                        eoySavingsGoal: Number(event.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label htmlFor="cfg-goal-year">Goal year</label>
+                <input
+                  id="cfg-goal-year"
+                  className="input-mono"
+                  type="number"
+                  min={new Date().getFullYear()}
+                  value={form.budgetPlan.goalYear}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      budgetPlan: {
+                        ...current.budgetPlan,
+                        goalYear: Number(event.target.value) || new Date().getFullYear(),
+                      },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="bevel-out panel panel-tight">
+              <div className="kicker">Preview</div>
+              <div className="stack-16 top-gap-24">
+                <div className="row">
+                  <div className="muted">Weekly savings target</div>
+                  <div className="mono">{formatMoney(preview.weeklySavingsTarget)}</div>
+                </div>
+                <div className="row">
+                  <div className="muted">Monthly savings target</div>
+                  <div className="mono">{formatMoney(preview.monthlySavingsTarget)}</div>
+                </div>
+                <div className="row">
+                  <div className="muted">Weekly discretionary budget</div>
+                  <div className="mono">{formatMoney(preview.weeklyDiscretionaryBudget)}</div>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -1,15 +1,21 @@
 import { useState, type FormEvent } from 'react'
 import {
+  computeBudgetAvailability,
   computeLevel,
+  computeMonthSpendingFromLogs,
   computeProgressPct,
   computeRank,
+  computeSavingsTargets,
   computeScore,
+  evaluatePurchaseDecision,
   formatMoney,
   getStreakTag,
   getTactics,
+  getWeekKey,
   monthInfo,
   paceTag,
   type AppProgressState,
+  type PurchaseDecisionResult,
   type QuestConfig,
   type WalkthroughTarget,
   type WeeklyLogEntry,
@@ -22,11 +28,38 @@ interface DashboardScreenProps {
   onSubmitLog: (entry: WeeklyLogEntry) => void
   onOpenReminder: () => void
   onOpenSync: () => void
+  onOpenWhatsNew: () => void
   syncStatusLabel: string
   syncEnabled: boolean
+  weeklyOverdue: boolean
+  paceAlert: {
+    level: 'urgent' | 'caution' | null
+    message: string
+  }
 }
 
-type CommandTab = 'log' | 'targets' | 'tactics'
+type CommandTab = 'log' | 'targets' | 'tactics' | 'finance'
+type BuyTiming = 'now' | 'this-week' | 'this-month'
+
+interface FormValues {
+  debt: string
+  savings: string
+  tracks: string
+  requiredSpend: string
+  discretionarySpend: string
+  note: string
+  logId: string | null
+}
+
+const EMPTY_FORM: FormValues = {
+  debt: '',
+  savings: '',
+  tracks: '',
+  requiredSpend: '',
+  discretionarySpend: '',
+  note: '',
+  logId: null,
+}
 
 export function DashboardScreen({
   config,
@@ -35,11 +68,18 @@ export function DashboardScreen({
   onSubmitLog,
   onOpenReminder,
   onOpenSync,
+  onOpenWhatsNew,
   syncStatusLabel,
   syncEnabled,
+  weeklyOverdue,
+  paceAlert,
 }: DashboardScreenProps) {
   const [commandTab, setCommandTab] = useState<CommandTab>('log')
-  const [formValues, setFormValues] = useState({ debt: '', savings: '', tracks: '' })
+  const [formValues, setFormValues] = useState<FormValues>(EMPTY_FORM)
+  const [buyCost, setBuyCost] = useState('')
+  const [buyName, setBuyName] = useState('')
+  const [buyTiming, setBuyTiming] = useState<BuyTiming>('now')
+  const [buyResult, setBuyResult] = useState<PurchaseDecisionResult | null>(null)
 
   const month = monthInfo()
   const debtPct = computeProgressPct(appState.current.debt, appState.targets.debt)
@@ -53,6 +93,23 @@ export function DashboardScreen({
 
   const tactics = getTactics(debtPct, tracksPct, month.expectedPct)
   const weekStamp = new Date().toLocaleDateString(undefined, { month: 'short', day: '2-digit' })
+
+  const savingsTargets = computeSavingsTargets(config.budgetPlan, appState.current.savings)
+  const monthSpending = computeMonthSpendingFromLogs(appState.logs)
+
+  const budgetAvailability = computeBudgetAvailability(
+    config.budgetPlan,
+    monthSpending,
+    new Date(),
+    appState.current.savings,
+  )
+
+  const weekKey = getWeekKey(new Date())
+  const weeklyDiscretionarySpent = appState.logs
+    .filter((entry) => entry.weekKey === weekKey)
+    .reduce((sum, entry) => sum + entry.discretionarySpend, 0)
+
+  const weeklyDiscretionaryRemaining = Math.max(0, budgetAvailability.weeklyDiscretionaryBudget - weeklyDiscretionarySpent)
 
   const scrollToCard = (id: string, tab: CommandTab) => {
     setCommandTab(tab)
@@ -69,12 +126,99 @@ export function DashboardScreen({
       debt: Number(formValues.debt) || 0,
       savings: Number(formValues.savings) || 0,
       tracks: Number(formValues.tracks) || 0,
+      requiredSpend: Number(formValues.requiredSpend) || 0,
+      discretionarySpend: Number(formValues.discretionarySpend) || 0,
+      note: formValues.note,
+      logId: formValues.logId ?? undefined,
     })
-    setFormValues({ debt: '', savings: '', tracks: '' })
+    setFormValues(EMPTY_FORM)
   }
+
+  const startEdit = (logId: string) => {
+    const target = appState.logs.find((entry) => entry.id === logId)
+    if (!target) {
+      return
+    }
+
+    setCommandTab('log')
+    setFormValues({
+      debt: String(target.debtPaid),
+      savings: String(target.savingsAdded),
+      tracks: String(target.tracksMade),
+      requiredSpend: String(target.requiredSpend),
+      discretionarySpend: String(target.discretionarySpend),
+      note: target.note,
+      logId: target.id,
+    })
+    scrollToCard('card-log', 'log')
+  }
+
+  const runBuyCheck = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const discretionaryBudgetRemaining =
+      buyTiming === 'this-month'
+        ? budgetAvailability.discretionaryRemainingThisMonth
+        : weeklyDiscretionaryRemaining
+
+    setBuyResult(
+      evaluatePurchaseDecision(
+        {
+          cost: Number(buyCost) || 0,
+          timing: buyTiming,
+          itemName: buyName,
+        },
+        {
+          discretionaryBudgetRemaining,
+          weeklySavingsTarget: savingsTargets.weeklySavingsTarget,
+          projectedYearEndSavings: savingsTargets.projectedYearEndSavings,
+          eoySavingsGoal: config.budgetPlan.eoySavingsGoal,
+        },
+      ),
+    )
+  }
+
+  const savingsGapTagClass =
+    savingsTargets.projectedGap >= savingsTargets.weeklySavingsTarget && savingsTargets.projectedGap > 0
+      ? 'bad'
+      : savingsTargets.projectedGap > 0
+        ? 'warn'
+        : 'good'
+
+  const history = [...appState.logs].sort((a, b) => b.loggedAt - a.loggedAt)
 
   return (
     <section id="screen-dashboard">
+      {(weeklyOverdue || paceAlert.level) && (
+        <div className="stack-16 card-gap">
+          {weeklyOverdue && (
+            <div className="bevel-out panel panel-tight finance-alert finance-alert-caution">
+              <div className="row">
+                <div className="kicker">Weekly Reminder</div>
+                <div className="tag warn">OVERDUE</div>
+              </div>
+              <p className="sub sub-top-16">This week is past your check-in time. Log spending and savings now.</p>
+            </div>
+          )}
+
+          {paceAlert.level && (
+            <div
+              className={`bevel-out panel panel-tight finance-alert ${
+                paceAlert.level === 'urgent' ? 'finance-alert-urgent' : 'finance-alert-caution'
+              }`}
+            >
+              <div className="row">
+                <div className="kicker">Savings Pace Alert</div>
+                <div className={`tag ${paceAlert.level === 'urgent' ? 'bad' : 'warn'}`}>
+                  {paceAlert.level === 'urgent' ? 'URGENT' : 'CAUTION'}
+                </div>
+              </div>
+              <p className="sub sub-top-16">{paceAlert.message}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="row top-row">
         <div>
           <div className="kicker">Operator</div>
@@ -139,11 +283,21 @@ export function DashboardScreen({
               TARGETS
             </button>
             <button
+              className={`cmd-btn ${commandTab === 'finance' ? 'active' : ''}`}
+              onClick={() => scrollToCard('card-finance', 'finance')}
+              type="button"
+            >
+              FINANCE
+            </button>
+            <button
               className={`cmd-btn ${commandTab === 'tactics' ? 'active' : ''}`}
               onClick={() => scrollToCard('card-tactics', 'tactics')}
               type="button"
             >
               TACTICS
+            </button>
+            <button className="cmd-btn" onClick={onOpenWhatsNew} type="button">
+              WHAT&apos;S NEW
             </button>
             <button className="cmd-btn" onClick={onOpenReminder} type="button">
               REMINDERS
@@ -220,9 +374,69 @@ export function DashboardScreen({
                 </div>
               </div>
 
-              <button className="btn btn-primary" type="submit">
-                Save log →
-              </button>
+              <div className="grid-2">
+                <div>
+                  <label htmlFor="input-required">Required spend</label>
+                  <input
+                    id="input-required"
+                    className="input-mono"
+                    type="number"
+                    min={0}
+                    required
+                    placeholder="0"
+                    value={formValues.requiredSpend}
+                    onChange={(event) =>
+                      setFormValues((current) => ({ ...current, requiredSpend: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="input-discretionary">Fun spend</label>
+                  <input
+                    id="input-discretionary"
+                    className="input-mono"
+                    type="number"
+                    min={0}
+                    required
+                    placeholder="0"
+                    value={formValues.discretionarySpend}
+                    onChange={(event) =>
+                      setFormValues((current) => ({ ...current, discretionarySpend: event.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="input-note">Note (optional)</label>
+                <input
+                  id="input-note"
+                  type="text"
+                  value={formValues.note}
+                  onChange={(event) =>
+                    setFormValues((current) => ({ ...current, note: event.target.value }))
+                  }
+                  placeholder="Big purchase, unusual week, or exception"
+                />
+              </div>
+
+              <div className="row row-end">
+                {formValues.logId && (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      setFormValues(EMPTY_FORM)
+                    }}
+                  >
+                    Cancel edit
+                  </button>
+                )}
+                <button className="btn btn-primary" type="submit">
+                  {formValues.logId ? 'Update log →' : 'Save log →'}
+                </button>
+              </div>
               <p
                 id="calendar-rule"
                 className={`sub ${highlightTarget === 'calendar' ? 'walkthrough-highlight-inline' : ''}`}
@@ -272,6 +486,183 @@ export function DashboardScreen({
                 <div className="mono">{formatMoney(appState.current.savings)}</div>
               </div>
             </div>
+          </div>
+
+          <div id="card-finance" className="bevel-out panel stack-24 card-gap">
+            <div>
+              <div className="kicker">Savings Pace</div>
+              <h2 className="h1 h1-sm pad-top-8">Year-end mission tracking</h2>
+            </div>
+
+            <div className="bevel-in panel panel-tight stack-16">
+              <div className="row">
+                <div className="muted">Weekly target</div>
+                <div className="mono">{formatMoney(savingsTargets.weeklySavingsTarget)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Monthly target</div>
+                <div className="mono">{formatMoney(savingsTargets.monthlySavingsTarget)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Remaining to goal</div>
+                <div className="mono">{formatMoney(savingsTargets.remainingGoal)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Projected year-end</div>
+                <div className="mono">{formatMoney(savingsTargets.projectedYearEndSavings)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Projected gap</div>
+                <div className={`tag ${savingsGapTagClass}`}>{formatMoney(savingsTargets.projectedGap)}</div>
+              </div>
+            </div>
+
+            <div className="bevel-in panel panel-tight stack-16">
+              <div className="kicker">Spending Snapshot</div>
+              <div className="row">
+                <div className="muted">Required spend this month</div>
+                <div className="mono">{formatMoney(monthSpending.required)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Fun spend this month</div>
+                <div className="mono">{formatMoney(monthSpending.discretionary)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Monthly fun budget</div>
+                <div className="mono">{formatMoney(budgetAvailability.monthlyDiscretionaryBudget)}</div>
+              </div>
+              <div className="row">
+                <div className="muted">Weekly fun budget</div>
+                <div className="mono">{formatMoney(budgetAvailability.weeklyDiscretionaryBudget)}</div>
+              </div>
+            </div>
+
+            <div className="bevel-in panel panel-tight stack-24">
+              <div>
+                <div className="kicker">Can I buy this right now?</div>
+                <p className="sub">Enter the cost and timing. System returns Yes, Caution, or No with impact.</p>
+              </div>
+
+              <form className="stack-16" onSubmit={runBuyCheck}>
+                <div className="grid-2">
+                  <div>
+                    <label htmlFor="buy-name">Item (optional)</label>
+                    <input
+                      id="buy-name"
+                      type="text"
+                      value={buyName}
+                      onChange={(event) => setBuyName(event.target.value)}
+                      placeholder="Headphones"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="buy-cost">Cost</label>
+                    <input
+                      id="buy-cost"
+                      className="input-mono"
+                      type="number"
+                      min={0}
+                      required
+                      value={buyCost}
+                      onChange={(event) => setBuyCost(event.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="buy-timing">Timing</label>
+                  <select
+                    id="buy-timing"
+                    value={buyTiming}
+                    onChange={(event) => setBuyTiming(event.target.value as BuyTiming)}
+                  >
+                    <option value="now">Now</option>
+                    <option value="this-week">This week</option>
+                    <option value="this-month">This month</option>
+                  </select>
+                </div>
+
+                <button className="btn btn-primary" type="submit">
+                  Check purchase →
+                </button>
+              </form>
+
+              {buyResult && (
+                <div className="bevel-out panel panel-tight stack-16">
+                  <div className="row">
+                    <div className="mono next-action">Decision</div>
+                    <div
+                      className={`tag ${
+                        buyResult.verdict === 'YES'
+                          ? 'good'
+                          : buyResult.verdict === 'CAUTION'
+                            ? 'warn'
+                            : 'bad'
+                      }`}
+                    >
+                      {buyResult.verdict}
+                    </div>
+                  </div>
+                  <p className="sub">{buyResult.reason}</p>
+                  <div className="row">
+                    <div className="muted">Discretionary after purchase</div>
+                    <div className="mono">{formatMoney(buyResult.impact.discretionaryRemainingAfter)}</div>
+                  </div>
+                  <div className="row">
+                    <div className="muted">Projected year-end after purchase</div>
+                    <div className="mono">{formatMoney(buyResult.impact.projectedYearEndAfter)}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bevel-out panel stack-24 card-gap" id="card-history">
+            <div className="row">
+              <div>
+                <div className="kicker">Weekly History</div>
+                <h2 className="h1 h1-sm pad-top-8">Editable log history</h2>
+              </div>
+              <div className="tag">{`${history.length} entries`}</div>
+            </div>
+
+            {history.length === 0 && <p className="sub">No weekly logs yet.</p>}
+
+            {history.length > 0 && (
+              <div className="history-table-wrap">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Savings</th>
+                      <th>Fun</th>
+                      <th>Req.</th>
+                      <th>Debt</th>
+                      <th>Tracks</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((entry) => (
+                      <tr key={entry.id}>
+                        <td data-label="Date">{new Date(entry.loggedAt).toLocaleDateString()}</td>
+                        <td data-label="Savings">{formatMoney(entry.savingsAdded)}</td>
+                        <td data-label="Fun">{formatMoney(entry.discretionarySpend)}</td>
+                        <td data-label="Required">{formatMoney(entry.requiredSpend)}</td>
+                        <td data-label="Debt">{formatMoney(entry.debtPaid)}</td>
+                        <td data-label="Tracks">{entry.tracksMade}</td>
+                        <td data-label="Action">
+                          <button className="btn btn-small" type="button" onClick={() => startEdit(entry.id)}>
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div id="card-tactics" className="bevel-out panel stack-24">

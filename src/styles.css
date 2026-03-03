@@ -653,6 +653,54 @@ input[type='checkbox'] {
   margin-top: calc(var(--g) * 1);
 }
 
+.finance-alert {
+  border-width: 2px;
+}
+
+.finance-alert-urgent {
+  border-color: var(--bad);
+  background: linear-gradient(180deg, #fce7e7, #f2d2d2);
+}
+
+.finance-alert-caution {
+  border-color: var(--warn);
+  background: linear-gradient(180deg, #fff4de, #f2e3c4);
+}
+
+.history-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+  font-size: 12px;
+}
+
+.history-table th,
+.history-table td {
+  border: 2px solid var(--lo);
+  background: #f4f4f4;
+  padding: calc(var(--g) * 1);
+  text-align: left;
+}
+
+.history-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  background: #e7e7e7;
+}
+
+.btn-small {
+  min-height: 44px;
+  padding: 0 calc(var(--g) * 2);
+  font-size: 12px;
+}
+
 @media (max-width: 1023px) {
   html,
   body,
@@ -738,6 +786,11 @@ input[type='checkbox'] {
     line-height: 1.4;
   }
 
+  input,
+  select {
+    font-size: 16px;
+  }
+
   .mono-small {
     font-size: 13px;
   }
@@ -785,6 +838,8 @@ input[type='checkbox'] {
 
   #card-log,
   #card-monthly,
+  #card-finance,
+  #card-history,
   #card-tactics {
     scroll-margin-top: calc(var(--g) * 14);
   }
@@ -857,6 +912,73 @@ input[type='checkbox'] {
 
   .btn {
     width: 100%;
+  }
+
+  .history-table-wrap {
+    overflow-x: visible;
+  }
+
+  .history-table {
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+  }
+
+  .history-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .history-table tbody {
+    display: grid;
+    gap: calc(var(--g) * 2);
+  }
+
+  .history-table tr {
+    display: grid;
+    border: 2px solid var(--lo);
+    background: #f4f4f4;
+  }
+
+  .history-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: calc(var(--g) * 2);
+    border: 0;
+    border-bottom: 1px solid var(--lo);
+    padding: calc(var(--g) * 1.5);
+  }
+
+  .history-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .history-table td::before {
+    content: attr(data-label);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex: 0 0 auto;
+  }
+
+  .history-table td[data-label='Action'] {
+    justify-content: flex-start;
+  }
+
+  .history-table td[data-label='Action'] .btn {
+    width: auto;
+    min-width: calc(var(--g) * 10);
   }
 
   .row-end {
