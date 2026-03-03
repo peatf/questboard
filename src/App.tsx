@@ -773,10 +773,8 @@ function App() {
     emitTelemetry('finance_walkthrough_shown', { version: FINANCE_WALKTHROUGH_VERSION })
   }
 
-  const walkthroughTarget: WalkthroughTarget | null =
-    !walkthroughOpen ? null : walkthroughStep <= 2 ? 'log' : walkthroughStep === 3 ? 'monthly' : 'calendar'
-
   const activeWalkthrough = walkthroughContent[Math.max(0, walkthroughStep - 1)]
+  const walkthroughTarget: WalkthroughTarget | null = walkthroughOpen ? activeWalkthrough?.target ?? null : null
   const syncLink = questState.sync.enabled ? getSyncLink(questState.sync.vaultId, questState.sync.syncKey) : null
 
   const weeklyOverdue = isWeeklyLogOverdue(questState.config, questState.appState.logs)

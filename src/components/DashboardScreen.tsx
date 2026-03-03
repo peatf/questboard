@@ -488,7 +488,12 @@ export function DashboardScreen({
             </div>
           </div>
 
-          <div id="card-finance" className="bevel-out panel stack-24 card-gap">
+          <div
+            id="card-finance"
+            className={`bevel-out panel stack-24 card-gap ${
+              highlightTarget === 'finance' ? 'walkthrough-highlight' : ''
+            }`}
+          >
             <div>
               <div className="kicker">Savings Pace</div>
               <h2 className="h1 h1-sm pad-top-8">Year-end mission tracking</h2>

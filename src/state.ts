@@ -89,7 +89,7 @@ export interface WeeklyLogEntry {
   logId?: string
 }
 
-export type WalkthroughTarget = 'log' | 'monthly' | 'calendar'
+export type WalkthroughTarget = 'log' | 'monthly' | 'finance' | 'calendar'
 export type WalkthroughVersion = 'finance-v1'
 
 export interface WalkthroughVersionProgress {
